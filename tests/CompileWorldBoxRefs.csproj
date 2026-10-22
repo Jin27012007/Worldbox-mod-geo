@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>ObservatorioRuntimeProof</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>CS0649;CS0414</NoWarn>
+    <ReferenceRoot Condition="'$(ReferenceRoot)' == ''">../references</ReferenceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Main.cs" />
+    <Reference Include="NeoModLoader">
+      <HintPath>$(ReferenceRoot)/NeoModLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ReferenceRoot)/Assembly-CSharp-Publicized.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/*.dll" Exclude="$(ReferenceRoot)/NeoModLoader.dll;$(ReferenceRoot)/Assembly-CSharp.dll;$(ReferenceRoot)/Assembly-CSharp-Publicized.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="CheckLocalWorldBoxReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ReferenceRoot)/NeoModLoader.dll')" Text="Missing NeoModLoader.dll in ReferenceRoot." />
+    <Error Condition="!Exists('$(ReferenceRoot)/Assembly-CSharp-Publicized.dll')" Text="Missing Assembly-CSharp-Publicized.dll in ReferenceRoot." />
+    <Error Condition="!Exists('$(ReferenceRoot)/UnityEngine.CoreModule.dll')" Text="Missing UnityEngine.CoreModule.dll in ReferenceRoot." />
+    <Error Condition="!Exists('$(ReferenceRoot)/UnityEngine.dll')" Text="Missing UnityEngine.dll in ReferenceRoot." />
+  </Target>
+</Project>
