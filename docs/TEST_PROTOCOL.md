@@ -1,13 +1,15 @@
-# Protocolo de teste Android — 0.5.9-dev
+# Protocolo de teste Android — 0.6.0-dev
 
-1. Faça backup da pasta do Observatório e instale somente os arquivos do ZIP da branch `scaffold/observatorio-dos-reinos`.
-2. Em retrato, procure a faixa `OBSERVATORIO 0.5.9-dev` e o atalho `GOVERNO`.
-3. No log, confirme `Runtime assembly fingerprint` mesmo que Harmony não possa ser resolvido. Depois procure `CANVAS_CREATED`, `STATUS_INFO_PREFIX_INSTALLED`, `STATUS_WINDOW_PREFIX_INSTALLED`, `STATUS_WINDOW_POSTFIX_INSTALLED` e `STATUS_WINDOW_FINALIZER_INSTALLED`.
-4. Gire para paisagem: confirme que a faixa e o atalho permanecem visíveis e que o painel pode abrir/fechar.
-5. Possua um rei e toque no status nativo. Procure `STATUS_INFO_PREFIX_SKIP` e confirme se a janela termina de inicializar.
-6. Se a exceção persistir, preserve a stack completa e o fingerprint de `StatsWindow`, `PowerTabController` e Harmony para comparar com `docs/ASSEMBLY_INVESTIGATION.md`.
+1. Faça backup da versão instalada do Observatório.
+2. Instale/compile esta revisão da branch `scaffold/observatorio-dos-reinos` usando as referências adequadas ao WorldBox Android 0.51.4 + NeoModLoader.
+3. No log, procure `NATIVE_WINDOW_CREATED`, `NATIVE_WINDOW_BUTTON_CREATED` e `JANELA_NATIVA_PRONTA`.
+4. Confirme que o botão `GOVERNO` aparece na interface do jogo. Toque nele e verifique se abre uma janela no sistema nativo do WorldBox.
+5. Teste as quatro abas; registre uma proposta de lei, uma proposta diplomática, uma pauta e um evento narrativo. Os textos de status devem responder a cada ação.
+6. Feche a janela usando o controle nativo e, separadamente, abra a janela de status de uma unidade/rei. O Observatório não deve emitir logs de instalação de Harmony nem interceptar essa janela.
+7. Repita em retrato e paisagem. Registre screenshots e o log se o botão/janela não aparecer ou se a janela de status continuar falhando.
 
-## Build automatizado
-https://github.com/Jin27012007/Worldbox-mod-geo/actions/runs/39850928817 confirma fonte com 0 warnings/0 errors contra stubs e o smoke test do escopo Harmony. Não é uma DLL instalável; o build real é pulado no runner público por falta das DLLs privadas.
+## O que este teste comprova
 
-As ações de administração continuam rascunhos, sem alterações no mundo.
+- A interface só é aceita se estiver visível e interativa no jogo real.
+- O teste de CI usa stubs e valida invariantes da lógica política local. Ele não demonstra compatibilidade runtime, não produz por si só uma DLL instalável e não substitui o teste do aparelho.
+- As ações apresentadas ainda são registros locais de sessão. Nenhuma alteração do reino nativo deve ser esperada nesta revisão.
