@@ -98,6 +98,11 @@ namespace ObservatorioDosReinos
         private Button botaoNativoClonado;
         private Component donoBotaoNativo;
         private bool patchInstalado;
+        private bool patchInfoCompleto;
+        private bool patchStatsPrefixInstalado;
+        private bool patchStatsPostfixInstalado;
+        private bool patchStatsFinalizerInstalado;
+        private readonly HashSet<MethodBase> metodosInfoPatchados=new HashSet<MethodBase>();
         private static bool abrindoStatus;
         private Sprite spriteJanela;
         private Font fonte;
@@ -162,7 +167,7 @@ namespace ObservatorioDosReinos
         {
             frames++;
             if(safeAreaRect!=null && Screen.safeArea!=lastSafeArea)AplicarSafeArea();
-            if(!patchInstalado && frames%120==0 && frames<=360)InstalarProtecaoStatus();
+            if(!ProtecaoStatusCompleta() && frames%120==0 && frames<=360)InstalarProtecaoStatus();
             if (frames % 25 == 0) TentarInserirBotaoNativo();
             if (frames % 60 == 0)
             {
@@ -548,9 +553,13 @@ namespace ObservatorioDosReinos
             catch(Exception ex){Debug.LogWarning("[Observatorio] Nao foi possivel inserir o botao na barra nativa: "+ex.GetType().Name+": "+ex.Message);return null;}
         }
 
+        private bool ProtecaoStatusCompleta()
+        {
+            return patchInfoCompleto && patchStatsPrefixInstalado && patchStatsPostfixInstalado && patchStatsFinalizerInstalado;
+        }
+
         private void InstalarProtecaoStatus()
         {
-            if(patchInstalado)return;
             try
             {
                 Type harmonyType=Type.GetType("HarmonyLib.Harmony, 0Harmony");
@@ -600,18 +609,22 @@ namespace ObservatorioDosReinos
                 {
                     MethodInfo[] powerMethods=powerType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
                     List<string> candidates=new List<string>();
-                    int count=0;
+                    List<MethodInfo> eligible=new List<MethodInfo>();
+                    int newlyInstalled=0;
                     for(int i=0;i<powerMethods.Length;i++)
                     {
                         MethodInfo candidate=powerMethods[i];
                         if(candidate.Name!="showWhoIsSelected" && candidate.Name!="showWorldTipSelected")continue;
                         ParameterInfo[] ps=candidate.GetParameters();
                         if(ps.Length!=2 || ps[0].ParameterType!=typeof(string) || ps[1].ParameterType!=typeof(bool))continue;
+                        eligible.Add(candidate);
                         candidates.Add(candidate.ToString());
+                        if(metodosInfoPatchados.Contains(candidate))continue;
                         try
                         {
                             patch.Invoke(harmony,new object[]{candidate,prefixHarmony,null,null,null});
-                            count++;
+                            metodosInfoPatchados.Add(candidate);
+                            newlyInstalled++;
                             Debug.Log("[Observatorio] STATUS_INFO_PREFIX_INSTALLED: "+candidate.DeclaringType.FullName+"."+candidate.Name+" | "+candidate);
                         }
                         catch(Exception ex)
@@ -619,51 +632,55 @@ namespace ObservatorioDosReinos
                             Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_FAILED: "+candidate+" | "+ex.GetType().Name+": "+ex.Message);
                         }
                     }
-                    Debug.Log("[Observatorio] status info method candidates: "+string.Join(" || ",candidates.ToArray()));
-                    installedAny=count>0;
+                    patchInfoCompleto=eligible.Count>0;
+                    for(int i=0;i<eligible.Count;i++)if(!metodosInfoPatchados.Contains(eligible[i]))patchInfoCompleto=false;
+                    Debug.Log("[Observatorio] status info candidates="+eligible.Count+", installed="+metodosInfoPatchados.Count+", new="+newlyInstalled+", complete="+patchInfoCompleto+" | "+string.Join(" || ",candidates.ToArray()));
+                    if(newlyInstalled>0)installedAny=true;
                 }
-                else Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_NOT_INSTALLED: PowerTabController="+(powerType!=null)+", prefix="+(prefixHarmony!=null));
+                else
+                {
+                    patchInfoCompleto=false;
+                    Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_NOT_INSTALLED: PowerTabController="+(powerType!=null)+", prefix="+(prefixHarmony!=null));
+                }
 
-                if(statsOnEnable!=null && statusWindowPrefixHarmony!=null)
+                if(statsOnEnable!=null && statusWindowPrefixHarmony!=null && !patchStatsPrefixInstalado)
                 {
                     try
                     {
                         patch.Invoke(harmony,new object[]{statsOnEnable,statusWindowPrefixHarmony,null,null,null});
-                        installedAny=true;
+                        patchStatsPrefixInstalado=true;installedAny=true;
                         Debug.Log("[Observatorio] STATUS_WINDOW_PREFIX_INSTALLED: "+statsOnEnable);
                     }
                     catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
                 }
-                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", prefix="+(statusWindowPrefixHarmony!=null));
+                else if(!patchStatsPrefixInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", prefix="+(statusWindowPrefixHarmony!=null));
 
-                if(statsOnEnable!=null && statusWindowPostfixHarmony!=null)
+                if(statsOnEnable!=null && statusWindowPostfixHarmony!=null && !patchStatsPostfixInstalado)
                 {
                     try
                     {
                         patch.Invoke(harmony,new object[]{statsOnEnable,null,statusWindowPostfixHarmony,null,null});
-                        installedAny=true;
+                        patchStatsPostfixInstalado=true;installedAny=true;
                         Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX_INSTALLED: "+statsOnEnable);
                     }
                     catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
                 }
-                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", postfix="+(statusWindowPostfixHarmony!=null));
+                else if(!patchStatsPostfixInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", postfix="+(statusWindowPostfixHarmony!=null));
 
-                if(statsOnEnable!=null && finalizerHarmony!=null)
+                if(statsOnEnable!=null && finalizerHarmony!=null && !patchStatsFinalizerInstalado)
                 {
                     try
                     {
                         patch.Invoke(harmony,new object[]{statsOnEnable,null,null,null,finalizerHarmony});
-                        installedAny=true;
+                        patchStatsFinalizerInstalado=true;installedAny=true;
                         Debug.Log("[Observatorio] STATUS_WINDOW_FINALIZER_INSTALLED: "+statsOnEnable);
                     }
                     catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_FAILED: "+ex.GetType().Name+": "+ex.Message);}
                 }
-                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", finalizer="+(finalizerHarmony!=null));
+                else if(!patchStatsFinalizerInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", finalizer="+(finalizerHarmony!=null));
 
-                patchInstalado=installedAny;
-                Debug.Log(installedAny
-                    ? "[Observatorio] STATUS_PATCH_INSTALLED: preventivo de PowerTabController + finalizer de StatsWindow quando disponiveis."
-                    : "[Observatorio] STATUS_PATCH_NOT_INSTALLED: nenhum patch compatível foi aplicado.");
+                patchInstalado=patchInstalado||installedAny||patchStatsPrefixInstalado||patchStatsPostfixInstalado||patchStatsFinalizerInstalado||metodosInfoPatchados.Count>0;
+                Debug.Log("[Observatorio] STATUS_PATCH_SUMMARY: installedAny="+patchInstalado+", infoPrefixComplete="+patchInfoCompleto+", statsPrefix="+patchStatsPrefixInstalado+", statsPostfix="+patchStatsPostfixInstalado+", finalizer="+patchStatsFinalizerInstalado+", complete="+ProtecaoStatusCompleta());
             }
             catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
         }
