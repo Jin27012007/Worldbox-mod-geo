@@ -2,6 +2,12 @@
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
   "version": "0.1.0-dev",
-  "description": "Prototipo 2D de diagnostico geopolitico para WorldBox Android. Inicialmente somente leitura.",
-  "guid": "jin27012007.observatoriodosreinos"
+  "description": "Painel 2D de observacao geopolitica para WorldBox Android; primeiro marco somente leitura.",
+  "iconPath": "icon.png",
+  "GUID": "com.jin27012007.observatoriodosreinos",
+  "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
+  "Dependencies": [],
+  "OptionalDependencies": [],
+  "IncompatibleWith": [],
+  "UsePublicizedAssembly": true
 }
