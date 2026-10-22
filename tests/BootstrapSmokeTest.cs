@@ -21,6 +21,10 @@ internal static class BootstrapSmokeTest
     public static int Main()
     {
         GameObject root = new GameObject("SelectedPowerTabTopButtons");
+        Canvas canvas = root.AddComponent<Canvas>() as Canvas;
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 7;
+        canvas.overrideSorting = true;
         SelectedPowerTabTopButtons panel = root.AddComponent<SelectedPowerTabTopButtons>() as SelectedPowerTabTopButtons;
         panel.AttachForTest(root);
 
@@ -38,6 +42,7 @@ internal static class BootstrapSmokeTest
         Require(logs.Contains("TYPE_PROBE name=SelectedPowerTabTopButtons; found=true"), "target type discovery");
         Require(logs.Contains("TYPE_FIELD type=SelectedPowerTabTopButtons; field=_button_possession"), "possession field discovery");
         Require(logs.Contains("UI_COMPONENT type=SelectedPowerTabTopButtons"), "scene component inspection");
+        Require(logs.Contains("canvas=name=SelectedPowerTabTopButtons;renderMode=ScreenSpaceOverlay;sortingOrder=7;overrideSorting=True"), "Canvas render mode and sorting order inspection");
         Require(logs.Contains("UI_BUTTON name=Button_Possession"), "child button hierarchy inspection");
         Require(logs.Contains("mvid="), "assembly MVID logging");
 
