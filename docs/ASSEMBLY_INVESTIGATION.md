@@ -56,3 +56,10 @@ Assim, a estratégia reflexiva usada no código corresponde às assinaturas enco
 A interface atual não usa mais as rotinas de Harmony investigadas acima. Os prefix/postfix/finalizer do Observatório foram removidos para que o mod não altere a abertura de `StatsWindow` ou as rotinas auxiliares de tooltip. O projeto usa agora `NeoModLoader.api.AbstractWideWindow<T>` e o registro nativo realizado pelo `WindowCreator.CreateEmptyWindow`.
 
 Isso é uma retirada da intervenção do mod, não uma prova de que a NullReference original do jogo foi corrigida. Se o erro ocorrer com esta versão, a nova janela e o erro de status devem ser diagnosticados como dois problemas independentes.
+
+
+## Revisão 0.6.1-dev: botão e janela desacoplados
+
+O código não instala mais prefix/postfix/finalizer Harmony no status. A criação do atalho foi movida para antes da tentativa de inicialização da janela. O atalho usa Canvas próprio com ordenação prioritária e logs de falha por condição. Assim, uma exceção durante `AbstractWideWindow.CreateAndInit` não deve impedir a criação do botão.
+
+A exceção nativa de status ainda não está corrigida. A ausência de patches significa que esta revisão não intercepta o erro; a stack trace atual do aparelho será necessária para decidir se o problema é causado pelo próprio jogo ou por outro mod.
