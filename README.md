@@ -1,32 +1,34 @@
 # Observatório dos Reinos — WorldBox Android
 
-Mod original 2D que amplia o controle nativo de personagens com governo e diplomacia. Ao controlar um rei ou uma rainha, a meta é liberar ferramentas para governar seu reino sem substituir os controles normais do WorldBox. A interface deve aproveitar a identidade visual padrão do jogo.
+Mod original 2D que amplia o controle nativo de personagens com governo e diplomacia. Ao controlar um rei ou rainha, a meta é abrir ferramentas para governar o reino daquele personagem sem substituir os controles normais do WorldBox. A interface deve aproveitar a identidade visual padrão do jogo.
 
-## Experiência desejada
-- Identificar o personagem controlado e confirmar se ele é rei/rainha.
-- Vincular o personagem ao reino e à cidade corretos.
-- Painel de governo com políticas e administração interna.
+## Funcionalidades desejadas
+- Detectar o personagem controlado e confirmar se é rei/rainha.
+- Identificar reino e cidade correspondentes.
+- Painel de governo: políticas e administração interna.
 - Contato com vilas/cidades, reuniões com representantes e conselheiros.
 - Pedidos de reunião com outros reinos, tratados, alianças, rivalidades e guerras.
-- Diálogos/eventos de RPG com escolhas e efeitos no mundo.
+- Diálogos/eventos de RPG com escolhas e consequências no mundo.
 
-## Status testado pelo usuário
-O usuário confirmou que o carregador reconhece o mod e que o autoteste político da versão anterior aparece no log. A atualização mais recente adicionou uma inspeção por reflexão somente de leitura, mas ainda não foi testada no aparelho.
+## Progresso confirmado
+O usuário testou com sucesso o carregamento do mod, o autoteste político e o diagnóstico de reflexão no NeoModLoader Android. O código atual ampliou a sonda de API para registrar mais membros candidatos de `PlayerControl`, `Actor`, `Kingdom`, `City` e `MapBox`.
 
-## Próxima tarefa de teste
-Atualize os arquivos da branch `scaffold/observatorio-dos-reinos`, abra um mundo no WorldBox e procure no log as linhas `Diagnostico do mundo:` e `Diagnostico de API (somente leitura):`. Envie o conteúdo dessas linhas; elas vão indicar quais tipos e membros existem na build 0.51.4 instalada. Se aparecer erro de compilação, envie a mensagem completa.
+## Próximo teste
+Baixe o ZIP da branch `scaffold/observatorio-dos-reinos`, atualize a pasta do mod preservando um backup e procure as linhas `Diagnostico do mundo:` e `Diagnostico de API (somente leitura):` no log. O conteúdo completo das linhas ainda é necessário para confirmar as APIs da build 0.51.4.
 
-## Limites atuais
-- Ainda não detecta com certeza o personagem controlado nem seu cargo de rei/rainha.
-- Ainda não tem painel jogável, botões de governo, reuniões, tratados, guerra integrada nem salvamento persistente.
-- As regras políticas atuais são um modelo interno de protótipo; os dois reinos do autoteste são fictícios.
-- A nova inspeção por reflexão procura tipos/campos e conta os gerenciadores de mundo, mas não altera objetos nativos.
+## Estado e limitações
+- A leitura de API é somente de metadados e coleções; não chama métodos de alteração do jogo.
+- Ainda não foi confirmada a detecção do personagem controlado nem do cargo de rei/rainha.
+- Ainda não existe painel jogável ou ações integradas de governo/diplomacia.
+- Os reinos usados no autoteste são fictícios e servem apenas para validar a inicialização do protótipo.
+- Documentação comunitária de 0.51.2 serve somente como pista para 0.51.4.
 
-## Plano
-1. Validar o diagnóstico da assembly 0.51.4.
-2. Ligar os dados reais de personagem, reino e cidade com leitura somente.
-3. Construir um painel usando a identidade visual padrão do jogo.
-4. Implementar decisões administrativas seguras.
-5. Integrar reuniões, diplomacia e RPG depois de validar cada API.
+## Plano de execução
+1. Validar o probe expandido na versão Android 0.51.4.
+2. Implementar leitura fail-soft dos dados reais de personagem/reino/cidade.
+3. Confirmar o personagem controlado e o papel de rei/rainha.
+4. Construir um painel em estilo nativo do WorldBox, inicialmente somente leitura.
+5. Implementar políticas administrativas e testar em mundo descartável.
+6. Conectar reuniões, tratados, guerras e eventos de RPG após validar suas APIs.
 
-Não incluir DLLs de jogo/loader nem reutilizar código ou assets de Worldfall. Referências públicas de WorldBox 0.51.2 são apenas pistas para a 0.51.4.
+Não embutir DLLs do jogo/loader nem reutilizar código ou assets do Worldfall.
