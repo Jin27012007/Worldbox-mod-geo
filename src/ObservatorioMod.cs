@@ -141,13 +141,23 @@ namespace ObservatorioDosReinos
         {
             frames++;
             if (frames % 25 == 0) TentarInserirBotaoNativo();
+            if (frames % 60 == 0)
+            {
+                bool uiOk = canvas != null && canvas.gameObject != null && canvas.gameObject.activeInHierarchy
+                    && textoDiagnostico != null && textoDiagnostico.gameObject.activeInHierarchy;
+                if (!uiOk && !tentouAvisarFalha)
+                {
+                    tentouAvisarFalha = true;
+                    Debug.LogError("[Observatorio] Diagnostico UI: Canvas ou texto diagnostico nao esta ativo.");
+                }
+            }
             if (frames % 45 == 0)
             {
                 string safe = Screen.safeArea.width.ToString("0") + "x" + Screen.safeArea.height.ToString("0");
                 if (textoDiagnostico != null)
                     textoDiagnostico.text = "OBSERVATORIO 0.5.1-dev | tela " + Screen.width + "x" + Screen.height
                         + " | area segura " + safe + " | Canvas ativo=" + (canvas != null && canvas.gameObject.activeInHierarchy)
-                        + " | botao nativo=" + (botaoNativoClonado != null);
+                        + " | GOV nativo=" + (botaoNativoClonado != null) + " | fallback=" + (faixaAlternativa != null && faixaAlternativa.activeInHierarchy);
             }
         }
 
