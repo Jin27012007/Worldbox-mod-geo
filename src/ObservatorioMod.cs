@@ -103,12 +103,10 @@ namespace ObservatorioDosReinos
 
         public static void Inicializar()
         {
-            if (Instance == null)
-            {
-                CreateAndInit(IdJanela, new Vector2(600f, 420f));
-                Debug.Log("[Observatorio] NATIVE_WINDOW_CREATED: janela registrada pelo NeoModLoader/AbstractWideWindow.");
-            }
-            ObservatorioAtalhoGov.TentarCriar();
+            if (Instance != null) return;
+            CreateAndInit(IdJanela, new Vector2(600f, 420f));
+            if (Instance == null) throw new InvalidOperationException("AbstractWideWindow não retornou a instância da janela.");
+            Debug.Log("[Observatorio] NATIVE_WINDOW_CREATED: " + IdJanela + " registrada via AbstractWideWindow.");
         }
 
         public static void Abrir()
@@ -392,60 +390,130 @@ namespace ObservatorioDosReinos
     }
 
     /// <summary>Atalho no Canvas de interface do jogo; a janela em si é um ScrollWindow nativo.</summary>
+    /// <summary>Atalho de alto contraste em canvas de ordenação própria.</summary>
     internal static class ObservatorioAtalhoGov
     {
         private static GameObject botaoRaiz;
+        private static string ultimoDiagnostico;
 
         internal static bool TentarCriar()
         {
             if (botaoRaiz != null) return true;
-            CanvasMain canvasMain = CanvasMain.instance;
-            if (canvasMain == null || canvasMain.canvas_ui == null) return false;
 
-            Transform parent = canvasMain.canvas_ui.transform;
-            Transform anterior = parent.Find("ObservatorioDosReinos_BotaoGoverno");
+            CanvasMain canvasMain = CanvasMain.instance;
+            if (canvasMain == null)
+                return Falhar("CANVAS_MAIN_NULL: CanvasMain.instance ainda não existe.");
+            if (canvasMain.canvas_ui == null)
+                return Falhar("CANVAS_UI_NULL: CanvasMain.canvas_ui ainda não existe.");
+            if (!canvasMain.canvas_ui.activeInHierarchy)
+                return Falhar("CANVAS_UI_INACTIVE: CanvasMain.canvas_ui existe, mas está inativo.");
+
+            GameObject anterior = canvasMain.canvas_ui.transform.Find("ObservatorioDosReinos_BotaoGoverno") != null
+                ? canvasMain.canvas_ui.transform.Find("ObservatorioDosReinos_BotaoGoverno").gameObject : null;
             if (anterior != null)
             {
-                botaoRaiz = anterior.gameObject;
+                botaoRaiz = anterior;
+                RegistrarEstado("BOTAO_GOVERNO_EXISTENTE: encontrei um botão criado por outra tentativa.");
                 return true;
             }
 
-            botaoRaiz = new GameObject("ObservatorioDosReinos_BotaoGoverno",
-                typeof(RectTransform), typeof(Image), typeof(Button));
-            botaoRaiz.transform.SetParent(parent, false);
-            RectTransform rect = botaoRaiz.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(16f, -138f);
-            rect.sizeDelta = new Vector2(132f, 42f);
+            GameObject novo = null;
+            try
+            {
+                novo = new GameObject("ObservatorioDosReinos_BotaoGoverno",
+                    typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(Image), typeof(Button));
+                novo.transform.SetParent(canvasMain.canvas_ui.transform, false);
 
-            Image image = botaoRaiz.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.23f, 0.15f, 0.96f);
-            Button button = botaoRaiz.GetComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(ObservatorioJanelaNativa.Abrir);
+                RectTransform rect = novo.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.anchoredPosition = new Vector2(18f, -142f);
+                rect.sizeDelta = new Vector2(158f, 50f);
 
-            GameObject textoObj = new GameObject("Texto_GOVERNO", typeof(RectTransform), typeof(Text));
-            textoObj.transform.SetParent(botaoRaiz.transform, false);
-            RectTransform textoRect = textoObj.GetComponent<RectTransform>();
-            textoRect.anchorMin = Vector2.zero;
-            textoRect.anchorMax = Vector2.one;
-            textoRect.offsetMin = new Vector2(4f, 2f);
-            textoRect.offsetMax = new Vector2(-4f, -2f);
-            Text texto = textoObj.GetComponent<Text>();
-            texto.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (texto.font == null) texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            texto.fontSize = 15;
-            texto.fontStyle = FontStyle.Bold;
-            texto.alignment = TextAnchor.MiddleCenter;
-            texto.color = new Color(1f, 0.78f, 0.35f, 1f);
-            texto.text = "GOVERNO";
-            texto.supportRichText = false;
+                Canvas overlay = novo.GetComponent<Canvas>();
+                overlay.overrideSorting = true;
+                overlay.sortingOrder = 32000;
+                GraphicRaycaster raycaster = novo.GetComponent<GraphicRaycaster>();
+                if (raycaster == null) novo.AddComponent<GraphicRaycaster>();
 
-            botaoRaiz.transform.SetAsLastSibling();
-            Debug.Log("[Observatorio] NATIVE_WINDOW_BUTTON_CREATED: botão GOVERNO no CanvasMain.canvas_ui.");
-            return true;
+                Image image = novo.GetComponent<Image>();
+                image.color = new Color(0.12f, 0.32f, 0.16f, 1f);
+                Button button = novo.GetComponent<Button>();
+                button.targetGraphic = image;
+                button.onClick.AddListener(AbrirJanelaComDiagnostico);
+
+                GameObject textoObj = new GameObject("Texto_GOVERNO", typeof(RectTransform), typeof(Text));
+                textoObj.transform.SetParent(novo.transform, false);
+                RectTransform textoRect = textoObj.GetComponent<RectTransform>();
+                textoRect.anchorMin = Vector2.zero;
+                textoRect.anchorMax = Vector2.one;
+                textoRect.offsetMin = new Vector2(4f, 2f);
+                textoRect.offsetMax = new Vector2(-4f, -2f);
+
+                Text texto = textoObj.GetComponent<Text>();
+                texto.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                if (texto.font == null) texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                texto.fontSize = 16;
+                texto.fontStyle = FontStyle.Bold;
+                texto.alignment = TextAnchor.MiddleCenter;
+                texto.color = new Color(1f, 0.88f, 0.38f, 1f);
+                texto.text = "GOVERNO";
+                texto.supportRichText = false;
+
+                novo.transform.SetAsLastSibling();
+                botaoRaiz = novo;
+                ultimoDiagnostico = null;
+                RegistrarEstado("NATIVE_WINDOW_BUTTON_CREATED: GOVERNO | parent=CanvasMain.canvas_ui"
+                    + " | overlay=true | sortingOrder=32000 | anchor=top-left | pos=(18,-142)"
+                    + " | screen=" + Screen.width + "x" + Screen.height);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (novo != null) UnityEngine.Object.Destroy(novo);
+                botaoRaiz = null;
+                return Falhar("NATIVE_WINDOW_BUTTON_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private static bool Falhar(string mensagem)
+        {
+            RegistrarEstado("[Observatorio] " + mensagem);
+            return false;
+        }
+
+        private static void RegistrarEstado(string mensagem)
+        {
+            if (ultimoDiagnostico == mensagem) return;
+            ultimoDiagnostico = mensagem;
+            Debug.LogWarning("[Observatorio] " + mensagem);
+        }
+
+        internal static void DefinirEstadoJanela(bool pronta)
+        {
+            if (botaoRaiz == null) return;
+            Text label = botaoRaiz.GetComponentInChildren<Text>(true);
+            if (label == null) return;
+            label.text = pronta ? "GOVERNO" : "GOVERNO !";
+            label.color = pronta
+                ? new Color(1f, 0.88f, 0.38f, 1f)
+                : new Color(1f, 0.42f, 0.30f, 1f);
+        }
+
+        private static void AbrirJanelaComDiagnostico()
+        {
+            try
+            {
+                ObservatorioJanelaNativa.Abrir();
+                DefinirEstadoJanela(true);
+            }
+            catch (Exception ex)
+            {
+                DefinirEstadoJanela(false);
+                Debug.LogError("[Observatorio] NATIVE_WINDOW_OPEN_FAILED: "
+                    + ex.GetType().Name + ": " + ex.Message);
+            }
         }
     }
 
@@ -488,8 +556,10 @@ namespace ObservatorioDosReinos
     public class Main : BasicMod<Main>
     {
         private static EstadoPolitico estadoPolitico;
+        private static EstadoPolitico estadoPolitico;
         private bool uiPendente;
         private bool janelaNativaPronta;
+        private bool tentouInicializarJanela;
         private int quadrosDesdeCarga;
 
         private void Update()
@@ -497,24 +567,56 @@ namespace ObservatorioDosReinos
             if (!uiPendente) return;
             quadrosDesdeCarga++;
             if (quadrosDesdeCarga % 30 != 0) return;
+
+            CanvasMain canvasMain = CanvasMain.instance;
+            if (canvasMain == null)
+            {
+                if (quadrosDesdeCarga % 300 == 0)
+                    LogInfo("BOTAO_GOVERNO_AGUARDANDO: CanvasMain.instance ainda não existe.");
+                return;
+            }
+            if (canvasMain.canvas_ui == null || !canvasMain.canvas_ui.activeInHierarchy)
+            {
+                if (quadrosDesdeCarga % 300 == 0)
+                    LogInfo("BOTAO_GOVERNO_AGUARDANDO: CanvasMain.canvas_ui está indisponível ou inativo.");
+                return;
+            }
+
+            // A criação do botão não depende da janela. Assim, um problema ao construir
+            // ScrollWindow não pode impedir o jogador de ver o atalho nem de gerar diagnóstico.
+            bool botaoCriado = ObservatorioAtalhoGov.TentarCriar();
+            if (!botaoCriado)
+            {
+                if (quadrosDesdeCarga % 300 == 0)
+                    LogInfo("BOTAO_GOVERNO_FALHOU: veja [Observatorio] no log para o motivo.");
+                return;
+            }
+
+            if (janelaNativaPronta) return;
+            if (tentouInicializarJanela && quadrosDesdeCarga % 300 != 0) return;
+            tentouInicializarJanela = true;
+
             try
             {
-                if (CanvasMain.instance == null || CanvasMain.instance.canvas_ui == null) return;
-                if (!janelaNativaPronta)
-                {
+                if (ObservatorioJanelaNativa.Instance == null)
                     ObservatorioJanelaNativa.Inicializar();
-                    janelaNativaPronta = ObservatorioAtalhoGov.TentarCriar();
-                    if (janelaNativaPronta) LogInfo("JANELA_NATIVA_PRONTA: Observatório registrado como janela do WorldBox.");
+
+                janelaNativaPronta = ObservatorioJanelaNativa.Instance != null;
+                ObservatorioAtalhoGov.DefinirEstadoJanela(janelaNativaPronta);
+                if (janelaNativaPronta)
+                {
+                    LogInfo("JANELA_NATIVA_PRONTA: Observatório registrado como janela nativa. Build=0.6.1-dev.");
                 }
                 else
                 {
-                    ObservatorioAtalhoGov.TentarCriar();
+                    LogInfo("JANELA_NATIVA_FALHOU: CreateAndInit retornou sem uma instância; o botão GOVERNO foi mantido.");
                 }
             }
             catch (Exception ex)
             {
-                if (quadrosDesdeCarga % 300 == 0)
-                    LogInfo("JANELA_NATIVA_AGUARDANDO: " + ex.GetType().Name + ": " + ex.Message);
+                ObservatorioAtalhoGov.DefinirEstadoJanela(false);
+                LogInfo("JANELA_NATIVA_FALHOU: " + ex.GetType().Name + ": " + ex.Message
+                    + ". O botão GOVERNO foi mantido para diagnóstico.");
             }
         }
 
