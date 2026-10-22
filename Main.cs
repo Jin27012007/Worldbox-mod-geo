@@ -38,6 +38,7 @@ public sealed class Main : BasicMod<Main>
     protected override void OnModLoad()
     {
         LogInfo("[OR-BASELINE] BUILD=" + Build + "; STAGE=ON_MOD_LOAD");
+        LogModDeclaration();
         LogInfo("[OR-BASELINE] ENV gameVersion=" + Safe(Application.version)
             + "; unityVersion=" + Safe(Application.unityVersion)
             + "; platform=" + Application.platform
@@ -91,6 +92,27 @@ public sealed class Main : BasicMod<Main>
     private static string Safe(string value)
     {
         return string.IsNullOrEmpty(value) ? "(empty)" : value;
+    }
+
+    private void LogModDeclaration()
+    {
+        try
+        {
+            var declaration = GetDeclaration();
+            if (declaration == null)
+            {
+                LogInfo("[OR-BASELINE] DECLARATION=null");
+                return;
+            }
+
+            LogInfo("[OR-BASELINE] DECLARATION name=" + Safe(declaration.Name)
+                + "; uid=" + Safe(declaration.UID)
+                + "; folder=" + Safe(declaration.FolderPath));
+        }
+        catch (Exception ex)
+        {
+            LogInfo("[OR-BASELINE] DECLARATION_ERROR=" + ex.GetType().Name + ": " + ex.Message);
+        }
     }
 
     private void LogOwnAssembly()
