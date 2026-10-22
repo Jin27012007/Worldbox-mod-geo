@@ -1,20 +1,13 @@
 # Protocolo de teste Android — 0.5.5-dev
 
-## Antes da instalação
-- Faça backup da pasta do Observatório dos Reinos.
-- Instale somente os arquivos do ZIP da branch `scaffold/observatorio-dos-reinos`.
-- A verificação C# contra stubs não é uma DLL instalável nem valida todas as chamadas da API real.
+1. Faça backup da pasta atual e instale somente os arquivos do ZIP da branch `scaffold/observatorio-dos-reinos`.
+2. Em retrato, confirme a faixa `OBSERVATORIO 0.5.5-dev` e o atalho `GOVERNO`.
+3. No log, procure `CANVAS_CREATED`, `STATUS_INFO_PREFIX_INSTALLED` e `STATUS_WINDOW_FINALIZER_INSTALLED`. Se algum estiver ausente, preserve a linha `*_NOT_INSTALLED`/`*_FAILED`.
+4. Gire para paisagem; confirme que a faixa e o atalho continuam visíveis e abra/feche o painel pelo atalho.
+5. Pressione o botão nativo de status do reino. Procure `STATUS_INFO_PREFIX_SKIP`; a janela deve terminar de inicializar sem a rotina auxiliar de tooltip naquela transição.
+6. Se o erro persistir, preserve a stack completa e a linha `Runtime assembly fingerprint` (StatsWindow, PowerTabController e Harmony). Compare os MVIDs com `docs/ASSEMBLY_INVESTIGATION.md` antes de outro patch.
 
-## Confirmar que a nova versão carregou
-1. Em retrato, procure a faixa `OBSERVATORIO 0.5.5-dev` e o atalho `GOVERNO`.
-2. No log, procurar `CANVAS_CREATED` ou `CANVAS_NOT_CREATED`.
-3. Procurar `STATUS_INFO_PREFIX_INSTALLED` e `STATUS_WINDOW_FINALIZER_INSTALLED` (ou os logs detalhados `NOT_INSTALLED/FAILED`).
-4. Gire para paisagem: a faixa e o atalho `GOVERNO` devem continuar acessíveis; abrir e fechar o painel pelo atalho.
+## O que o build comprova
+A verificação independente contra stubs compilou o fonte com zero erros/avisos. Isso não é uma DLL instalável e não verifica as APIs reais. O build contra assemblies reais está preparado, mas as DLLs privadas não são fornecidas ao runner público.
 
-## Testar o status do reino
-1. Possua um rei como nos testes anteriores.
-2. Toque no botão nativo de informações/status do reino.
-3. O prefix preventivo deve registrar `STATUS_INFO_PREFIX_SKIP` se o método de tooltip/seleção for chamado durante `StatsWindow.OnEnable`. A intenção é permitir que a janela conclua a inicialização sem executar essa rotina auxiliar nessa transição.
-4. Se ainda ocorrer `NullReferenceException`, guardar o log completo: se prefix não instalou, usar a razão `STATUS_INFO_PREFIX_NOT_INSTALLED/FAILED`; se instalou mas não houve `SKIP`, a stack real pode usar outro método/nome ou o frame caller não foi reconhecido; se houve `SKIP` mas a exceção persiste, ela vem de outra referência dentro de `StatsWindow.OnEnable`.
-
-Nenhuma das ações de administração altera dados do mundo nessa versão.
+As opções administrativas ainda são demonstrações e não alteram reino, cidades, guerra ou diplomacia reais.
