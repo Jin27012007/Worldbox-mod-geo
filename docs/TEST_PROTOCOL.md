@@ -1,5 +1,7 @@
 # Protocolo de teste Android — 0.6.0-dev
 
+ZIP de código-fonte: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip. Extraia no diretório de mods do NeoModLoader e garanta que a pasta do projeto contenha o `mod.json` na raiz. O `tests/` é excluído pelo `.gitignore` para que os stubs não sejam compilados como parte do mod.
+
 1. Faça backup da versão instalada do Observatório.
 2. Instale/compile esta revisão da branch `scaffold/observatorio-dos-reinos` usando as referências adequadas ao WorldBox Android 0.51.4 + NeoModLoader.
 3. No log, procure `NATIVE_WINDOW_CREATED`, `NATIVE_WINDOW_BUTTON_CREATED` e `JANELA_NATIVA_PRONTA`.
