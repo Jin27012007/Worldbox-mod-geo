@@ -238,23 +238,31 @@ public sealed class Main : BasicMod<Main>
             LogInfo("[OR-BASELINE] TYPE_FIELDS_NONE type=" + simpleName);
     }
 
+    private static readonly Dictionary<string, Type> LoadedTypeIndex =
+        new Dictionary<string, Type>(StringComparer.Ordinal);
+    private static bool loadedTypeIndexBuilt;
+
     private static Type FindLoadedType(string requestedName)
     {
+        if (string.IsNullOrEmpty(requestedName)) return null;
+        BuildLoadedTypeIndex();
+
+        Type result;
+        return LoadedTypeIndex.TryGetValue(requestedName, out result) ? result : null;
+    }
+
+    private static void BuildLoadedTypeIndex()
+    {
+        if (loadedTypeIndexBuilt) return;
+        loadedTypeIndexBuilt = true;
+
         Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
         for (int i = 0; i < assemblies.Length; i++)
         {
-            Assembly assembly = assemblies[i];
-            try
-            {
-                Type exact = assembly.GetType(requestedName, false);
-                if (exact != null) return exact;
-            }
-            catch { }
-
             Type[] types;
             try
             {
-                types = assembly.GetTypes();
+                types = assemblies[i].GetTypes();
             }
             catch (ReflectionTypeLoadException ex)
             {
@@ -270,13 +278,19 @@ public sealed class Main : BasicMod<Main>
             {
                 Type candidate = types[t];
                 if (candidate == null) continue;
-                if (string.Equals(candidate.Name, requestedName, StringComparison.Ordinal)
-                    || string.Equals(candidate.FullName, requestedName, StringComparison.Ordinal))
-                    return candidate;
+
+                if (!string.IsNullOrEmpty(candidate.FullName)
+                    && !LoadedTypeIndex.ContainsKey(candidate.FullName))
+                    LoadedTypeIndex.Add(candidate.FullName, candidate);
+
+                // Full names are stored first, so a namespaced type can always be requested
+                // unambiguously. The simple name is only a convenience for game types whose
+                // full namespace differs between WorldBox builds.
+                if (!string.IsNullOrEmpty(candidate.Name)
+                    && !LoadedTypeIndex.ContainsKey(candidate.Name))
+                    LoadedTypeIndex.Add(candidate.Name, candidate);
             }
         }
-
-        return null;
     }
 
     private void ProbeControlPanels()
