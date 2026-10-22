@@ -7,160 +7,91 @@ using UnityEngine;
 
 namespace ObservatorioDosReinos
 {
-    /// <summary>
-    /// Sonda somente leitura para descobrir APIs sem assumir que todas as versões
-    /// do WorldBox expõem os mesmos membros.
-    /// </summary>
     internal static class LeitorSeguroDoMundo
     {
-        private const BindingFlags Membros = BindingFlags.Public | BindingFlags.NonPublic
-            | BindingFlags.Instance | BindingFlags.Static;
-
+        private const BindingFlags B = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         internal sealed class Resumo
         {
             public bool MapaEncontrado;
-            public int Reinos = -1;
-            public int Cidades = -1;
-            public int Unidades = -1;
+            public int Reinos = -1, Cidades = -1, Unidades = -1;
             public string Diagnostico = "";
         }
-
         public static Resumo Inspecionar()
         {
-            Resumo resultado = new Resumo();
+            Resumo r = new Resumo();
             List<string> notas = new List<string>();
             try
             {
-                Type mapaTipo = Type.GetType("MapBox, Assembly-CSharp");
-                if (mapaTipo == null)
+                Type tMapa = Type.GetType("MapBox, Assembly-CSharp");
+                if (tMapa == null) { r.Diagnostico = "MapBox ausente."; return r; }
+                FieldInfo fInstancia = tMapa.GetField("instance", B);
+                object mapa = fInstancia == null ? null : fInstancia.GetValue(null);
+                r.MapaEncontrado = mapa != null;
+                if (mapa == null) { r.Diagnostico = "MapBox.instance indisponivel; mundo nao inicializado ou campo ausente."; return r; }
+                r.Reinos = Contar(mapa, "kingdoms", notas);
+                r.Cidades = Contar(mapa, "cities", notas);
+                r.Unidades = Contar(mapa, "units", notas);
+                string[] tipos = { "PlayerControl", "Actor", "Kingdom", "City", "MapBox" };
+                string[] pistas = { "selected", "controlled", "player", "king", "kingdom", "city", "name", "actor", "current", "unit", "focus", "control", "instance", "target", "follow", "hero" };
+                for (int i = 0; i < tipos.Length; i++)
                 {
-                    notas.Add("MapBox nao encontrado em Assembly-CSharp.");
-                    resultado.Diagnostico = string.Join(" | ", notas.ToArray());
-                    return resultado;
+                    Type t = Type.GetType(tipos[i] + ", Assembly-CSharp");
+                    notas.Add(t == null ? "tipo " + tipos[i] + " ausente." : "tipo " + t.FullName + ": " + ResumoMembros(t, pistas));
                 }
-
-                FieldInfo instanciaCampo = mapaTipo.GetField("instance", Membros);
-                object mapa = instanciaCampo == null ? null : instanciaCampo.GetValue(null);
-                resultado.MapaEncontrado = mapa != null;
-                if (mapa == null)
-                {
-                    notas.Add("MapBox.instance indisponivel; mundo nao inicializado ou campo ausente.");
-                    resultado.Diagnostico = string.Join(" | ", notas.ToArray());
-                    return resultado;
-                }
-
-                resultado.Reinos = ContarGerenciador(mapa, "kingdoms", notas);
-                resultado.Cidades = ContarGerenciador(mapa, "cities", notas);
-                resultado.Unidades = ContarGerenciador(mapa, "units", notas);
-
-                string[] nomesTipos = { "PlayerControl", "Actor", "Kingdom", "City", "MapBox" };
-                string[] pistas = { "selected", "controlled", "player", "king", "kingdom",
-                    "city", "name", "actor", "current", "unit", "focus", "control",
-                    "instance", "target", "follow", "hero" };
-                for (int i = 0; i < nomesTipos.Length; i++)
-                {
-                    Type t = Type.GetType(nomesTipos[i] + ", Assembly-CSharp");
-                    if (t == null)
-                    {
-                        notas.Add("tipo " + nomesTipos[i] + " ausente.");
-                        continue;
-                    }
-                    notas.Add("tipo " + t.FullName + ": " + ResumirMembros(t, pistas));
-                }
-
-                resultado.Diagnostico = string.Join(" | ", notas.ToArray());
-                return resultado;
+                r.Diagnostico = string.Join(" | ", notas.ToArray());
             }
-            catch (Exception ex)
-            {
-                resultado.Diagnostico = "Inspecao segura falhou: " + ex.GetType().Name + ": " + ex.Message;
-                return resultado;
-            }
+            catch (Exception ex) { r.Diagnostico = "Sonda interrompida com seguranca: " + ex.GetType().Name + ": " + ex.Message; }
+            return r;
         }
-
-        private static int ContarGerenciador(object mapa, string nome, List<string> notas)
+        private static int Contar(object mapa, string nome, List<string> notas)
         {
             try
             {
-                FieldInfo campo = AcharCampo(mapa.GetType(), nome);
-                object gerenciador = campo == null ? null : campo.GetValue(mapa);
-                if (gerenciador == null)
-                {
-                    notas.Add("gerenciador " + nome + " indisponivel.");
-                    return -1;
-                }
-                PropertyInfo contagem = AcharPropriedade(gerenciador.GetType(), "Count");
-                if (contagem != null && contagem.PropertyType == typeof(int))
-                {
-                    object valor = contagem.GetValue(gerenciador, null);
-                    if (valor is int) return (int)valor;
-                }
-                IEnumerable enumeravel = gerenciador as IEnumerable;
-                if (enumeravel == null)
-                {
-                    notas.Add("gerenciador " + nome + " sem IEnumerable.");
-                    return -1;
-                }
-                int total = 0;
-                foreach (object item in enumeravel) if (item != null) total++;
-                return total;
+                FieldInfo f = Campo(mapa.GetType(), nome);
+                object manager = f == null ? null : f.GetValue(mapa);
+                if (manager == null) { notas.Add("gerenciador " + nome + " indisponivel."); return -1; }
+                PropertyInfo p = Propriedade(manager.GetType(), "Count");
+                if (p != null && p.PropertyType == typeof(int)) { object v = p.GetValue(manager, null); if (v is int) return (int)v; }
+                IEnumerable e = manager as IEnumerable;
+                if (e == null) { notas.Add("gerenciador " + nome + " sem IEnumerable."); return -1; }
+                int n = 0; foreach (object item in e) if (item != null) n++; return n;
             }
-            catch (Exception ex)
-            {
-                notas.Add("contagem " + nome + " falhou: " + ex.GetType().Name);
-                return -1;
-            }
+            catch (Exception ex) { notas.Add("contagem " + nome + " falhou: " + ex.GetType().Name); return -1; }
         }
-
-        private static string ResumirMembros(Type tipo, string[] pistas)
+        private static string ResumoMembros(Type tipo, string[] pistas)
         {
-            List<string> encontrados = new List<string>();
-            for (Type atual = tipo; atual != null; atual = atual.BaseType)
+            List<string> itens = new List<string>();
+            for (Type a = tipo; a != null; a = a.BaseType)
             {
-                FieldInfo[] campos = atual.GetFields(Membros | BindingFlags.DeclaredOnly);
-                for (int i = 0; i < campos.Length; i++)
-                    if (Combina(campos[i].Name, pistas)) encontrados.Add("F:" + campos[i].Name);
-                PropertyInfo[] propriedades = atual.GetProperties(Membros | BindingFlags.DeclaredOnly);
-                for (int i = 0; i < propriedades.Length; i++)
-                    if (Combina(propriedades[i].Name, pistas)) encontrados.Add("P:" + propriedades[i].Name);
-                MethodInfo[] metodos = atual.GetMethods(Membros | BindingFlags.DeclaredOnly);
-                for (int i = 0; i < metodos.Length; i++)
-                    if (Combina(metodos[i].Name, pistas)) encontrados.Add("M:" + metodos[i].Name);
+                FieldInfo[] fs = a.GetFields(B | BindingFlags.DeclaredOnly);
+                for (int i = 0; i < fs.Length; i++) if (Combina(fs[i].Name, pistas)) itens.Add("F:" + fs[i].Name);
+                PropertyInfo[] ps = a.GetProperties(B | BindingFlags.DeclaredOnly);
+                for (int i = 0; i < ps.Length; i++) if (Combina(ps[i].Name, pistas)) itens.Add("P:" + ps[i].Name);
+                MethodInfo[] ms = a.GetMethods(B | BindingFlags.DeclaredOnly);
+                for (int i = 0; i < ms.Length; i++) if (Combina(ms[i].Name, pistas)) itens.Add("M:" + ms[i].Name);
             }
-            if (encontrados.Count == 0) return "(sem correspondencias pelas pistas)";
-            if (encontrados.Count > 35) encontrados.RemoveRange(35, encontrados.Count - 35);
-            return string.Join(",", encontrados.ToArray());
+            if (itens.Count == 0) return "(sem correspondencias)";
+            if (itens.Count > 35) itens.RemoveRange(35, itens.Count - 35);
+            return string.Join(",", itens.ToArray());
         }
-
-        private static bool Combina(string nome, string[] pistas)
+        private static bool Combina(string n, string[] pistas)
         {
-            for (int i = 0; i < pistas.Length; i++)
-                if (nome.IndexOf(pistas[i], StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            for (int i = 0; i < pistas.Length; i++) if (n.IndexOf(pistas[i], StringComparison.OrdinalIgnoreCase) >= 0) return true;
             return false;
         }
-
-        private static FieldInfo AcharCampo(Type tipo, string nome)
+        private static FieldInfo Campo(Type t, string nome)
         {
-            for (Type atual = tipo; atual != null; atual = atual.BaseType)
-            {
-                FieldInfo campo = atual.GetField(nome, Membros | BindingFlags.DeclaredOnly);
-                if (campo != null) return campo;
-            }
+            for (Type a = t; a != null; a = a.BaseType) { FieldInfo f = a.GetField(nome, B | BindingFlags.DeclaredOnly); if (f != null) return f; }
             return null;
         }
-
-        private static PropertyInfo AcharPropriedade(Type tipo, string nome)
+        private static PropertyInfo Propriedade(Type t, string nome)
         {
-            for (Type atual = tipo; atual != null; atual = atual.BaseType)
-            {
-                PropertyInfo prop = atual.GetProperty(nome, Membros | BindingFlags.DeclaredOnly);
-                if (prop != null) return prop;
-            }
+            for (Type a = t; a != null; a = a.BaseType) { PropertyInfo p = a.GetProperty(nome, B | BindingFlags.DeclaredOnly); if (p != null) return p; }
             return null;
         }
     }
 
-    /// <summary>Protótipo visual responsivo. Os botões de política ainda são demonstrativos.</summary>
+    /// <summary>Menu visual responsivo. As opções são rascunhos e não alteram o mundo real.</summary>
     public sealed class MenuAdministracaoOverlay : MonoBehaviour
     {
         private const int IdJanela = 490271;
@@ -169,126 +100,81 @@ namespace ObservatorioDosReinos
         private int aba;
         private Rect janela;
         private Vector2 rolagem;
-        private string nomePolitica = "Protecao das aldeias";
+        private string nomePolitica = "Proteção das aldeias";
         private string textoReuniao = "Convocar conselho real para discutir as necessidades do reino.";
-        private string textoDiplomacia = "Propor um tratado de paz e comercio.";
-        private string textoEvento = "Um emissario chega ao castelo com noticias da fronteira.";
+        private string textoDiplomacia = "Propor um tratado de paz e comércio.";
+        private string textoEvento = "Um emissário chega ao castelo com notícias da fronteira.";
         private string retorno = "Protótipo visual: ações ainda não alteram o mundo.";
-        private bool leiProtecao = true;
-        private bool leiComercio;
-        private bool leiRecrutamento;
-        private GUIStyle titulo;
-        private GUIStyle secao;
-        private GUIStyle texto;
-        private GUIStyle botao;
-        private GUIStyle campo;
-        private GUIStyle pequeno;
+        private bool leiProtecao = true, leiComercio, leiRecrutamento;
+        private GUIStyle titulo, secao, texto, botao, campo, pequeno, caixa;
 
         public static void CriarSeNecessario()
         {
             if (instancia != null) return;
-            MenuAdministracaoOverlay existente = FindObjectOfType<MenuAdministracaoOverlay>();
-            if (existente != null) { instancia = existente; return; }
-            GameObject objeto = new GameObject("ObservatorioDosReinos_MenuAdmin");
-            DontDestroyOnLoad(objeto);
-            instancia = objeto.AddComponent<MenuAdministracaoOverlay>();
+            MenuAdministracaoOverlay e = FindObjectOfType<MenuAdministracaoOverlay>();
+            if (e != null) { instancia = e; return; }
+            GameObject go = new GameObject("ObservatorioDosReinos_MenuAdmin");
+            DontDestroyOnLoad(go);
+            instancia = go.AddComponent<MenuAdministracaoOverlay>();
         }
-
         private void OnGUI()
         {
             try
             {
-                PrepararEstilos();
+                Estilos();
                 float margem = Mathf.Clamp(Screen.width * 0.02f, 8f, 18f);
-                float larguraAtalho = Mathf.Clamp(Screen.width * 0.22f, 112f, 184f);
-                float alturaAtalho = Mathf.Clamp(Screen.height * 0.045f, 34f, 48f);
-                GUI.color = new Color(1f, 1f, 1f, 0.98f);
-                if (GUI.Button(new Rect(margem, margem, larguraAtalho, alturaAtalho),
-                    aberto ? "Fechar governo" : "Governo", botao))
-                    aberto = !aberto;
-
+                float largAtalho = Mathf.Clamp(Screen.width * 0.22f, 112f, 184f);
+                float altAtalho = Mathf.Clamp(Screen.height * 0.045f, 34f, 48f);
+                Color anterior = GUI.color;
+                GUI.color = Color.white;
+                if (GUI.Button(new Rect(margem, margem, largAtalho, altAtalho), aberto ? "Fechar governo" : "Governo", botao)) aberto = !aberto;
                 if (aberto)
                 {
-                    float largura = Mathf.Clamp(Screen.width - margem * 2f, 270f, 620f);
-                    largura = Mathf.Min(largura, Screen.width - margem * 2f);
-                    float altura = Mathf.Clamp(Screen.height * 0.72f, 300f, 660f);
-                    altura = Mathf.Min(altura, Screen.height - margem * 2f);
-                    float x = (Screen.width - largura) * 0.5f;
-                    float y = Mathf.Max(margem, (Screen.height - altura) * 0.5f);
-                    janela = new Rect(x, y, largura, altura);
-                    janela = GUI.Window(IdJanela, janela, DesenharJanela, "OBSERVATÓRIO DOS REINOS");
+                    float largura = Mathf.Min(620f, Screen.width - margem * 2f);
+                    float altura = Mathf.Min(Mathf.Clamp(Screen.height * 0.72f, 300f, 660f), Screen.height - margem * 2f);
+                    janela = new Rect((Screen.width - largura) * 0.5f, (Screen.height - altura) * 0.5f, largura, altura);
+                    janela = GUI.Window(IdJanela, janela, DesenharJanela, "OBSERVATÓRIO DOS REINOS", caixa);
                 }
-                GUI.color = Color.white;
+                GUI.color = anterior;
             }
-            catch (Exception ex)
-            {
-                GUI.color = Color.white;
-                Debug.LogWarning("[ObservatorioDosReinos] UI segura interrompida: " + ex.GetType().Name);
-            }
+            catch (Exception ex) { GUI.color = Color.white; Debug.LogWarning("[ObservatorioDosReinos] UI indisponivel: " + ex.GetType().Name); }
         }
-
-        private void PrepararEstilos()
+        private void Estilos()
         {
             if (titulo != null) return;
             int fonte = Mathf.Clamp(Screen.width / 38, 12, 20);
-            titulo = new GUIStyle(GUI.skin.label);
-            titulo.fontSize = fonte + 2;
-            titulo.fontStyle = FontStyle.Bold;
+            titulo = new GUIStyle(GUI.skin.label) { fontSize = fonte + 2, fontStyle = FontStyle.Bold, wordWrap = true };
             titulo.normal.textColor = new Color(1f, 0.68f, 0.24f);
-            titulo.wordWrap = true;
-
-            secao = new GUIStyle(GUI.skin.label);
-            secao.fontSize = fonte;
-            secao.fontStyle = FontStyle.Bold;
+            secao = new GUIStyle(GUI.skin.label) { fontSize = fonte, fontStyle = FontStyle.Bold, wordWrap = true };
             secao.normal.textColor = new Color(1f, 0.72f, 0.34f);
-            secao.wordWrap = true;
-
-            texto = new GUIStyle(GUI.skin.label);
-            texto.fontSize = fonte;
+            texto = new GUIStyle(GUI.skin.label) { fontSize = fonte, wordWrap = true };
             texto.normal.textColor = new Color(0.93f, 0.92f, 0.82f);
-            texto.wordWrap = true;
-
-            botao = new GUIStyle(GUI.skin.button);
-            botao.fontSize = fonte;
-            botao.wordWrap = true;
-            botao.fixedHeight = Mathf.Clamp(fonte * 2.8f, 34f, 54f);
-            botao.normal.textColor = Color.white;
-
-            campo = new GUIStyle(GUI.skin.textField);
-            campo.fontSize = fonte;
-            campo.fixedHeight = Mathf.Clamp(fonte * 2.5f, 30f, 46f);
-
-            pequeno = new GUIStyle(texto);
-            pequeno.fontSize = Mathf.Max(10, fonte - 2);
+            botao = new GUIStyle(GUI.skin.button) { fontSize = fonte, wordWrap = true, fixedHeight = Mathf.Clamp(fonte * 2.8f, 34f, 54f) };
+            campo = new GUIStyle(GUI.skin.textField) { fontSize = fonte, fixedHeight = Mathf.Clamp(fonte * 2.5f, 30f, 46f) };
+            pequeno = new GUIStyle(texto) { fontSize = Mathf.Max(10, fonte - 2) };
+            caixa = new GUIStyle(GUI.skin.window) { fontSize = fonte, fontStyle = FontStyle.Bold };
+            caixa.normal.textColor = new Color(1f, 0.68f, 0.24f);
         }
-
         private void DesenharJanela(int id)
         {
             GUILayout.BeginVertical();
             GUILayout.Label("Painel de administração • protótipo", titulo);
-            GUILayout.Label("Personagem/reino: aguardando ligação à API real do WorldBox.", pequeno);
-            GUILayout.Space(4);
-
+            GUILayout.Label("Personagem/reino: integração real ainda pendente.", pequeno);
             GUILayout.BeginHorizontal();
             string[] abas = { "Governo", "Diplomacia", "Reuniões", "RPG" };
-            for (int i = 0; i < abas.Length; i++)
-                if (GUILayout.Button(abas[i], botao)) aba = i;
+            for (int i = 0; i < abas.Length; i++) if (GUILayout.Button(abas[i], botao)) aba = i;
             GUILayout.EndHorizontal();
-            GUILayout.Space(8);
-
             rolagem = GUILayout.BeginScrollView(rolagem, GUILayout.Height(Mathf.Max(110f, janela.height - 150f)));
             if (aba == 0) DesenharGoverno();
             else if (aba == 1) DesenharDiplomacia();
             else if (aba == 2) DesenharReunioes();
             else DesenharRpg();
             GUILayout.EndScrollView();
-
-            GUILayout.Space(5);
+            GUILayout.Space(4);
             GUILayout.Label(retorno, pequeno);
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, 10000, 26));
         }
-
         private void DesenharGoverno()
         {
             GUILayout.Label("POLÍTICAS DO REINO", secao);
@@ -297,55 +183,39 @@ namespace ObservatorioDosReinos
             leiProtecao = GUILayout.Toggle(leiProtecao, "Proteger aldeias e civis");
             leiComercio = GUILayout.Toggle(leiComercio, "Incentivar o comércio");
             leiRecrutamento = GUILayout.Toggle(leiRecrutamento, "Expandir o recrutamento");
-            if (GUILayout.Button("Preparar proposta de lei", botao))
-                retorno = "Rascunho local guardado na sessão: " + nomePolitica + ". Ainda não altera o reino.";
+            if (GUILayout.Button("Preparar proposta de lei", botao)) retorno = "Rascunho local preparado: " + nomePolitica + ". Não altera o reino.";
             GUILayout.Space(8);
             GUILayout.Label("ADMINISTRAÇÃO", secao);
-            GUILayout.Label("Os campos e opções acima são protótipos de interface; ainda não aplicam efeitos ao jogo.", texto);
+            GUILayout.Label("Estas opções são visuais e ainda não aplicam efeitos ao jogo.", texto);
         }
-
         private void DesenharDiplomacia()
         {
             GUILayout.Label("DIPLOMACIA ENTRE REINOS", secao);
             GUILayout.Label("Texto da proposta", texto);
             textoDiplomacia = GUILayout.TextArea(textoDiplomacia, campo, GUILayout.MinHeight(70f));
-            if (GUILayout.Button("Preparar tratado", botao))
-                retorno = "Proposta diplomática preparada como rascunho. Nenhum reino foi alterado.";
-            if (GUILayout.Button("Solicitar reunião", botao))
-                retorno = "Pedido de reunião registrado apenas nesta sessão de interface.";
-            if (GUILayout.Button("Declarar guerra (bloqueado)", botao))
-                retorno = "Ação bloqueada: integração diplomática nativa ainda não validada.";
+            if (GUILayout.Button("Preparar tratado", botao)) retorno = "Rascunho de tratado preparado; nenhum reino foi alterado.";
+            if (GUILayout.Button("Solicitar reunião", botao)) retorno = "Pedido de reunião preparado nesta sessão.";
+            if (GUILayout.Button("Declarar guerra (bloqueado)", botao)) retorno = "Bloqueado até validar a API diplomática nativa.";
         }
-
         private void DesenharReunioes()
         {
             GUILayout.Label("REUNIÕES E VILAS", secao);
             GUILayout.Label("Assunto da reunião", texto);
             textoReuniao = GUILayout.TextArea(textoReuniao, campo, GUILayout.MinHeight(70f));
-            if (GUILayout.Button("Preparar reunião do conselho", botao))
-                retorno = "Pauta preparada localmente. Ainda não convocou personagens reais.";
-            if (GUILayout.Button("Contatar uma vila (visual)", botao))
-                retorno = "Interface de contato preparada; falta ligar ao sistema real de cidades.";
-            GUILayout.Label("Etapa futura: escolher cidade, representante e resultado da reunião.", pequeno);
+            if (GUILayout.Button("Preparar reunião do conselho", botao)) retorno = "Pauta preparada; ainda não convoca personagens reais.";
+            if (GUILayout.Button("Contatar uma vila (visual)", botao)) retorno = "Contato visual preparado; integração de cidades pendente.";
+            GUILayout.Label("Futuro: escolher cidade, representante e resultado.", pequeno);
         }
-
         private void DesenharRpg()
         {
             GUILayout.Label("EVENTOS E INTERAÇÕES DE RPG", secao);
             GUILayout.Label("Descrição do evento", texto);
             textoEvento = GUILayout.TextArea(textoEvento, campo, GUILayout.MinHeight(70f));
-            if (GUILayout.Button("Criar rascunho de evento", botao))
-                retorno = "Rascunho narrativo criado nesta sessão; sem consequência na simulação.";
-            if (GUILayout.Button("Escolha: negociar", botao))
-                retorno = "Escolha de exemplo selecionada. A consequência ainda não está conectada.";
-            if (GUILayout.Button("Escolha: recusar", botao))
-                retorno = "Escolha de exemplo selecionada. A consequência ainda não está conectada.";
+            if (GUILayout.Button("Criar rascunho de evento", botao)) retorno = "Rascunho narrativo criado nesta sessão, sem efeito no mundo.";
+            if (GUILayout.Button("Escolha: negociar", botao)) retorno = "Escolha de exemplo selecionada; consequência não conectada.";
+            if (GUILayout.Button("Escolha: recusar", botao)) retorno = "Escolha de exemplo selecionada; consequência não conectada.";
         }
-
-        private void OnDestroy()
-        {
-            if (instancia == this) instancia = null;
-        }
+        private void OnDestroy() { if (instancia == this) instancia = null; }
     }
 
     public sealed class PoliticaDoReino
@@ -359,9 +229,7 @@ namespace ObservatorioDosReinos
         {
             Id = string.IsNullOrEmpty(id) ? Guid.NewGuid().ToString("N") : id;
             Nome = string.IsNullOrEmpty(nome) ? "Reino sem nome" : nome;
-            Estabilidade = 60;
-            Legitimidade = 50;
-            Tesouro = 100;
+            Estabilidade = 60; Legitimidade = 50; Tesouro = 100;
         }
         public void AjustarEstabilidade(int variacao) { Estabilidade = Limitar((long)Estabilidade + variacao, 0, 100); }
         public void AjustarLegitimidade(int variacao) { Legitimidade = Limitar((long)Legitimidade + variacao, 0, 100); }
@@ -370,28 +238,20 @@ namespace ObservatorioDosReinos
     }
 
     public enum TipoRelacaoDiplomatica { Neutra = 0, Comercio = 1, Alianca = 2, Rivalidade = 3, Guerra = 4 }
-
     public sealed class RelacaoDiplomatica
     {
         public string ReinoA { get; private set; }
         public string ReinoB { get; private set; }
         public TipoRelacaoDiplomatica Tipo { get; private set; }
         public int Opiniao { get; private set; }
-        public RelacaoDiplomatica(string reinoA, string reinoB)
+        public RelacaoDiplomatica(string a, string b)
         {
-            if (string.IsNullOrEmpty(reinoA) || string.IsNullOrEmpty(reinoB))
-                throw new ArgumentException("Os IDs dos dois reinos sao obrigatorios.");
-            if (reinoA == reinoB) throw new ArgumentException("Um reino nao pode ter relacao consigo mesmo.");
-            if (string.CompareOrdinal(reinoA, reinoB) < 0) { ReinoA = reinoA; ReinoB = reinoB; }
-            else { ReinoA = reinoB; ReinoB = reinoA; }
-            Tipo = TipoRelacaoDiplomatica.Neutra;
-            Opiniao = 0;
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) throw new ArgumentException("IDs obrigatórios.");
+            if (a == b) throw new ArgumentException("Um reino não pode ter relação consigo mesmo.");
+            if (string.CompareOrdinal(a, b) < 0) { ReinoA = a; ReinoB = b; } else { ReinoA = b; ReinoB = a; }
+            Tipo = TipoRelacaoDiplomatica.Neutra; Opiniao = 0;
         }
-        public void DefinirTipo(TipoRelacaoDiplomatica tipo)
-        {
-            if (!Enum.IsDefined(typeof(TipoRelacaoDiplomatica), tipo)) throw new ArgumentOutOfRangeException("tipo");
-            Tipo = tipo;
-        }
+        public void DefinirTipo(TipoRelacaoDiplomatica tipo) { if (!Enum.IsDefined(typeof(TipoRelacaoDiplomatica), tipo)) throw new ArgumentOutOfRangeException("tipo"); Tipo = tipo; }
         public void AjustarOpiniao(int variacao) { Opiniao = (int)Math.Max(-100L, Math.Min(100L, (long)Opiniao + variacao)); }
         public string Chave { get { return ReinoA + "::" + ReinoB; } }
     }
@@ -404,27 +264,22 @@ namespace ObservatorioDosReinos
         public int QuantidadeDeRelacoes { get { return relacoes.Count; } }
         public PoliticaDoReino RegistrarReino(string id, string nome)
         {
-            if (string.IsNullOrEmpty(id)) throw new ArgumentException("O ID do reino e obrigatorio.");
+            if (string.IsNullOrEmpty(id)) throw new ArgumentException("O ID é obrigatório.");
             PoliticaDoReino existente;
             if (reinos.TryGetValue(id, out existente)) return existente;
-            PoliticaDoReino novo = new PoliticaDoReino(id, nome);
-            reinos.Add(id, novo);
-            return novo;
+            PoliticaDoReino novo = new PoliticaDoReino(id, nome); reinos.Add(id, novo); return novo;
         }
         public bool TentarObterReino(string id, out PoliticaDoReino reino) { return reinos.TryGetValue(id, out reino); }
-        public RelacaoDiplomatica ObterOuCriarRelacao(string reinoA, string reinoB)
+        public RelacaoDiplomatica ObterOuCriarRelacao(string a, string b)
         {
-            if (string.IsNullOrEmpty(reinoA) || string.IsNullOrEmpty(reinoB))
-                throw new ArgumentException("Os IDs dos dois reinos sao obrigatorios.");
-            if (reinoA == reinoB) throw new ArgumentException("Nao existe relacao diplomatica entre um reino e ele mesmo.");
-            string primeiro = string.CompareOrdinal(reinoA, reinoB) < 0 ? reinoA : reinoB;
-            string segundo = string.CompareOrdinal(reinoA, reinoB) < 0 ? reinoB : reinoA;
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) throw new ArgumentException("IDs obrigatórios.");
+            if (a == b) throw new ArgumentException("Um reino não pode ter relação consigo mesmo.");
+            string primeiro = string.CompareOrdinal(a, b) < 0 ? a : b;
+            string segundo = string.CompareOrdinal(a, b) < 0 ? b : a;
             string chave = primeiro + "::" + segundo;
             RelacaoDiplomatica relacao;
             if (relacoes.TryGetValue(chave, out relacao)) return relacao;
-            relacao = new RelacaoDiplomatica(primeiro, segundo);
-            relacoes.Add(chave, relacao);
-            return relacao;
+            relacao = new RelacaoDiplomatica(primeiro, segundo); relacoes.Add(chave, relacao); return relacao;
         }
     }
 
@@ -434,23 +289,23 @@ namespace ObservatorioDosReinos
         protected override void OnModLoad()
         {
             estadoPolitico = new EstadoPolitico();
-            PoliticaDoReino testeA = estadoPolitico.RegistrarReino("diagnostico-a", "Reino de teste A");
-            PoliticaDoReino testeB = estadoPolitico.RegistrarReino("diagnostico-b", "Reino de teste B");
-            RelacaoDiplomatica relacao = estadoPolitico.ObterOuCriarRelacao(testeA.Id, testeB.Id);
+            PoliticaDoReino a = estadoPolitico.RegistrarReino("diagnostico-a", "Reino de teste A");
+            PoliticaDoReino b = estadoPolitico.RegistrarReino("diagnostico-b", "Reino de teste B");
+            RelacaoDiplomatica relacao = estadoPolitico.ObterOuCriarRelacao(a.Id, b.Id);
             relacao.DefinirTipo(TipoRelacaoDiplomatica.Comercio);
             relacao.AjustarOpiniao(10);
-
-            LogInfo("Observatorio dos Reinos carregado. Sistemas politicos locais inicializados.");
-            LogInfo("Autoteste politico: reinos=" + estadoPolitico.QuantidadeDeReinos
-                + ", relacoes=" + estadoPolitico.QuantidadeDeRelacoes
-                + ", tipo=" + relacao.Tipo + ", opiniao=" + relacao.Opiniao + ".");
-
+            LogInfo("Observatorio dos Reinos carregado.");
+            LogInfo("Autoteste politico: reinos=" + estadoPolitico.QuantidadeDeReinos + ", relacoes=" + estadoPolitico.QuantidadeDeRelacoes + ", tipo=" + relacao.Tipo + ", opiniao=" + relacao.Opiniao + ".");
             LeitorSeguroDoMundo.Resumo mundo = LeitorSeguroDoMundo.Inspecionar();
-            LogInfo("Diagnostico do mundo: mapa=" + mundo.MapaEncontrado
-                + ", reinos=" + mundo.Reinos + ", cidades=" + mundo.Cidades
-                + ", unidades=" + mundo.Unidades + ".");
+            LogInfo("Diagnostico do mundo: mapa=" + mundo.MapaEncontrado + ", reinos=" + mundo.Reinos + ", cidades=" + mundo.Cidades + ", unidades=" + mundo.Unidades + ".");
             LogInfo("Diagnostico de API (somente leitura): " + mundo.Diagnostico);
-            LogInfo("Modo seguro: nenhuma cidade, unidade ou relacao original do WorldBox foi alterada.");
+            try
+            {
+                MenuAdministracaoOverlay.CriarSeNecessario();
+                LogInfo("Menu visual administrativo criado; ações ainda são protótipos.");
+            }
+            catch (Exception ex) { LogInfo("Menu visual indisponível nesta build: " + ex.GetType().Name + "."); }
+            LogInfo("Modo seguro: nenhuma entidade nativa foi alterada.");
         }
     }
 }
