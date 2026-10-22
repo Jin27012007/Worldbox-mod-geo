@@ -1,3 +1,6 @@
 # Local/proprietary WorldBox reference assemblies (never commit these to the public repository)
 references/**/*.dll
 references/*.dll
+
+# Keep CI-only stub/test sources out of the in-game source-mod compiler.
+tests/
