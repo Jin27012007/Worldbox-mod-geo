@@ -587,8 +587,10 @@ namespace ObservatorioDosReinos
                 if(patch==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: assinatura Harmony.Patch nao reconhecida: "+ListarAssinaturas(harmonyMethods,"Patch"));return;}
 
                 MethodInfo prefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("PrefixSelectedInfoWhenOpeningStatus",BindingFlags.Public|BindingFlags.Static);
+                MethodInfo statusWindowPrefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowPrefix",BindingFlags.Public|BindingFlags.Static);
                 MethodInfo finalizerMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
                 object prefixHarmony=prefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,prefixMethod);
+                object statusWindowPrefixHarmony=statusWindowPrefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,statusWindowPrefixMethod);
                 object finalizerHarmony=finalizerMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,finalizerMethod);
                 bool installedAny=false;
 
