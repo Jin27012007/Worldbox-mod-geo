@@ -1,23 +1,22 @@
-# Teste Android — 0.5.1-dev
+# Teste Android — `0.5.2-dev`
 
-## Diagnóstico da UI
-1. Faça backup da pasta do Observatório dos Reinos e instale o ZIP do branch `scaffold/observatorio-dos-reinos`.
-2. Em retrato, procure a faixa `OBSERVATORIO 0.5.1-dev` e o atalho `GOVERNO` perto do topo, mas abaixo da barra de estado.
-3. Toque em `GOVERNO`: a janela deve abrir com abas Governo, Diplomacia, Reuniões e RPG.
-4. Gire para paisagem. A faixa e o atalho devem continuar visíveis; use o atalho para abrir/fechar de novo.
-5. Toque no botão nativo de status do reino. Se o fallback rodar, o log deverá conter `FINALIZER ACIONADO` e o painel alternativo deve abrir.
+O objetivo agora é descobrir por que o painel e o patch não aparecem antes de tentar outra correção cosmética.
 
-## Mensagens úteis do log
-- `Canvas, botao reserva e painel admin prontos`
-- `UI administrativa via Canvas criada`
-- `Botao de governo inserido acima do botao nativo de informacoes`
-- `FINALIZER ACIONADO: NullReference no status nativo`
+1. Faça backup da pasta atual do Observatório dos Reinos.
+2. Baixe e instale o ZIP do branch `scaffold/observatorio-dos-reinos`.
+3. Em retrato, procure o banner `OBSERVATORIO 0.5.2-dev` e o botão `GOVERNO`.
+4. Abra o log a partir do início do carregamento e procure:
+   - `[Observatorio] Canvas, botao reserva e painel admin prontos`
+   - `[Observatorio] Protecao de fallback instalada` ou a mensagem explicando por que não foi possível instalar
+   - `UI administrativa via Canvas criada`
+5. Abra o status nativo do reino e procure `FINALIZER ACIONADO`.
+6. Gire para landscape; anote se o banner e o botão ainda existem.
 
-## Como interpretar
-- Sem faixa visível e sem essas mensagens: fonte não compilado/carregado, ou erro antes da inicialização. Não tente corrigir posição de UI ainda.
-- Faixa presente mas atalho ausente: erro de posicionamento/Hierarchy ou o elemento não está ativo; envie captura e as mensagens.
-- Atalho presente mas tocar não abre: bug no callback da UI; envie captura e stack trace.
-- O erro nativo continua sem `FINALIZER ACIONADO`: o patch Harmony não se instalou ou a exceção ocorre em método diferente. Envie stack completa; não vamos simplesmente esconder erros.
-- Se o botão funciona em retrato, mas some em paisagem, a faixa de diagnóstico deverá mostrar resolução/área segura para a orientação nova; envie captura nos dois sentidos.
+## Decisão com base no resultado
+- **Não aparecem as mensagens de carga:** mod não compilado/carregado nesta revisão; não ajustar mais layout até resolver isso.
+- **Mensagens aparecem, mas não há banner:** revisar `Canvas`, sorting order, lifecycle e `Screen.safeArea`.
+- **Banner e botão aparecem, mas clique não funciona:** investigar `GraphicRaycaster`, `EventSystem`, raycast targets e hierarquia.
+- **Status dá erro, mas não há `FINALIZER ACIONADO`:** patch Harmony não foi instalado ou o método/assinatura real é diferente; obter metadata da assembly 0.51.4 antes de mudar o patch.
+- **Finalizer é acionado, mas painel não abre:** investigar sequência de `OnEnable`/`SetActive`/Canvas, sem suprimir outras exceções.
 
-A UI continua em protótipo: botões demonstrativos não alteram entidades do mundo.
+Botões atuais são apenas rascunhos. Não testar mudanças de gameplay nesta etapa. Guarde o log completo em vez de enviar apenas a parte da exceção.
