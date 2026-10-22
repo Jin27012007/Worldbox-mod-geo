@@ -101,6 +101,8 @@ namespace ObservatorioDosReinos
         private Sprite spriteJanela;
         private Font fonte;
         private Text textoDiagnostico;
+        private RectTransform safeAreaRect;
+        private Rect lastSafeArea;
         private bool tentouAvisarFalha;
 
 
@@ -158,6 +160,8 @@ namespace ObservatorioDosReinos
         private void Update()
         {
             frames++;
+            if(safeAreaRect!=null && Screen.safeArea!=lastSafeArea)AplicarSafeArea();
+            if(!patchInstalado && frames%120==0 && frames<=360)InstalarProtecaoStatus();
             if (frames % 25 == 0) TentarInserirBotaoNativo();
             if (frames % 60 == 0)
             {
@@ -203,7 +207,8 @@ namespace ObservatorioDosReinos
             RectTransform safeRect=safeRoot.GetComponent<RectTransform>();
             safeRect.anchorMin=Vector2.zero;safeRect.anchorMax=Vector2.one;
             safeRect.offsetMin=Vector2.zero;safeRect.offsetMax=Vector2.zero;
-            safeRoot.AddComponent<CanvasSafeAreaLayout>();
+            safeAreaRect=safeRect;
+            AplicarSafeArea();
             Transform uiRoot=safeRoot.transform;
 
             GameObject fallback=NovoUI("Atalho reserva Governo",uiRoot,typeof(Image),typeof(Button));
@@ -411,22 +416,17 @@ namespace ObservatorioDosReinos
             Outline outline=go.AddComponent<Outline>();outline.effectColor=new Color(0.68f,0.47f,0.20f,0.95f);outline.effectDistance=new Vector2(2f,-2f);
         }
 
-        private sealed class CanvasSafeAreaLayout : MonoBehaviour
+        private void AplicarSafeArea()
         {
-            private RectTransform rect;
-            private Rect ultima;
-            private void Awake(){rect=transform as RectTransform;Aplicar();}
-            private void Update(){if(rect==null)rect=transform as RectTransform;if(Screen.safeArea!=ultima)Aplicar();}
-            private void Aplicar()
-            {
-                if(rect==null)return;
-                ultima=Screen.safeArea;
-                Vector2 min=ultima.position;
-                Vector2 max=ultima.position+ultima.size;
-                min.x/=Mathf.Max(1f,Screen.width);min.y/=Mathf.Max(1f,Screen.height);
-                max.x/=Mathf.Max(1f,Screen.width);max.y/=Mathf.Max(1f,Screen.height);
-                rect.anchorMin=min;rect.anchorMax=max;rect.offsetMin=Vector2.zero;rect.offsetMax=Vector2.zero;
-            }
+            if(safeAreaRect==null)return;
+            Rect area=Screen.safeArea;
+            lastSafeArea=area;
+            Vector2 min=area.position;
+            Vector2 max=area.position+area.size;
+            min.x/=Mathf.Max(1f,Screen.width);min.y/=Mathf.Max(1f,Screen.height);
+            max.x/=Mathf.Max(1f,Screen.width);max.y/=Mathf.Max(1f,Screen.height);
+            safeAreaRect.anchorMin=min;safeAreaRect.anchorMax=max;
+            safeAreaRect.offsetMin=Vector2.zero;safeAreaRect.offsetMax=Vector2.zero;
         }
 
         private static Sprite BuscarSpriteJanela()
