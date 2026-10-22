@@ -1,43 +1,37 @@
-# Observatório dos Reinos (WorldBox 0.51.4)
+# Observatório dos Reinos — WorldBox Android
 
-Mod original para WorldBox no Android, usando NeoModLoader, com foco em geopolítica, diplomacia e interações de RPG. A proposta é manter a simulação original e adicionar um painel 2D leve — sem modo 3D.
+Mod original 2D para WorldBox Android com foco em geopolítica, diplomacia e interações de RPG. O objetivo é acrescentar sistemas próprios sem substituir a simulação original do jogo.
 
-## Primeiro marco: smoke test do carregador
+## Estado atual
 
-A classe de entrada agora segue o padrão documentado do NML:
+A classe de entrada do NeoModLoader foi confirmada pelo usuário no jogo: o mod foi reconhecido e a mensagem de diagnóstico apareceu no log. A versão mais recente do código acrescenta um protótipo de regras políticas isoladas, mas **essa atualização ainda precisa ser recompilada/carregada no aparelho**.
 
-```csharp
-using NeoModLoader.api;
+## Primeira camada de sistemas
 
-public class Main : BasicMod<Main>
-{
-    protected override void OnModLoad()
-    {
-        LogInfo("Observatorio dos Reinos carregado.");
-    }
-}
-```
+- Cadastro interno de entidades políticas por ID e nome.
+- Estabilidade e legitimidade (0–100) e tesouro (0–1.000.000).
+- Relações diplomáticas do mod: neutra, comércio, aliança, rivalidade e guerra.
+- Opinião entre reinos (-100 a +100).
+- Proteção contra relações duplicadas quando os IDs são informados em ordem invertida.
+- Autoteste reportado no log: dois reinos simulados e uma relação de comércio.
 
-Este código serve para verificar o ciclo de vida do mod e escrever no log. **Ainda não foi compilado nem executado no aparelho.** A interface de entrada corresponde à documentação pública consultada para NeoModLoader, mas deve ser confirmada contra a DLL e a versão específica instalada.
+**Importante:** são dados internos de protótipo; ainda não leem nem alteram os reinos reais do mundo. Nenhuma guerra, cidade, unidade ou relação original do WorldBox é modificada nesta etapa.
 
-## Estrutura
+## Arquivos
 
-- `mod.json`: manifesto usando as chaves documentadas do NML (`GUID`, `Dependencies`, `UsePublicizedAssembly` etc.).
-- `src/ObservatorioMod.cs`: entrada do mod, atualmente só registra carregamento.
-- `docs/STATUS.md`: fatos e pendências técnicas.
-- `docs/TEST_PROTOCOL.md`: plano de validação no Android.
+- `mod.json`: manifesto do NeoModLoader.
+- `src/ObservatorioMod.cs`: entrada e regras políticas iniciais.
+- `docs/STATUS.md`: estado confirmado, limitações e próximos passos.
+- `docs/TEST_PROTOCOL.md`: protocolo para testar no Android.
 
 ## Próximos passos
 
-1. Fazer o NML compilar o fonte no aparelho e verificar o log de carregamento.
-2. Resolver quaisquer erros de compilação com o log exato, sem adivinhar APIs.
-3. Adicionar um painel 2D simples.
-4. Inspecionar as APIs do jogo para exibir reinos/cidades/governantes em modo somente leitura.
-5. Só depois avançar para diplomacia e interação de RPG.
+1. Reinstalar/atualizar a pasta do mod com esta versão do fonte e confirmar a nova linha de autoteste.
+2. Investigar os tipos e membros reais de reinos e cidades na assembly exata da versão 0.51.4 instalada.
+3. Adicionar leitura real do mundo, inicialmente somente leitura.
+4. Criar painel 2D próprio e testar em orientação horizontal e vertical.
+5. Construir eventos diplomáticos, comércio, crises políticas e interações RPG apenas depois de confirmar APIs e persistência.
 
-## Princípios
+## Compatibilidade e origem
 
-- Não mudar a simulação na etapa inicial.
-- Não incluir cópias das DLLs do jogo ou do carregador no pacote do mod.
-- Não reutilizar código, modelos ou assets do Worldfall.
-- Não afirmar compatibilidade até testar no WorldBox 0.51.4 no aparelho.
+O protótipo usa a estrutura pública documentada do NeoModLoader. O código atualizado não foi compilado de forma independente nem validado em runtime no aparelho. Referências comunitárias de APIs de WorldBox 0.51.2 são apenas pistas para a 0.51.4, não prova de compatibilidade. Não inclui DLLs do jogo/carregador nem reutiliza código ou assets do Worldfall.
