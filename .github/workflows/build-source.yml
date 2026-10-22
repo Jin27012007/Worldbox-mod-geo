@@ -16,22 +16,33 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mono-devel
-      - name: Locate compatible assemblies
+      - name: Find reference assemblies
+        shell: bash
         run: |
-          echo "Looking for a local game/NeoModLoader reference bundle..."
-          find . -type f \( -iname 'Assembly-CSharp-Publicized.dll' -o -iname 'Assembly-CSharp.dll' -o -iname 'NeoModLoader.dll' -o -iname 'UnityEngine.CoreModule.dll' -o -iname 'UnityEngine.dll' \) -print
-          echo "No game/loader DLLs are committed; build requires user-supplied reference assemblies."
-      - name: Check C# syntax and project source
+          find . -type f \\( -iname 'Assembly-CSharp-Publicized.dll' -o -iname 'Assembly-CSharp.dll' -o -iname 'NeoModLoader.dll' -o -iname 'UnityEngine.dll' -o -iname 'UnityEngine.CoreModule.dll' -o -iname 'UnityEngine.UI.dll' \\) -print > /tmp/refs.txt
+          cat /tmp/refs.txt
+      - name: Compile against available references when supplied
+        shell: bash
         run: |
-          mcs -target:library -out:/tmp/probe.dll src/*.cs 2>&1 | tee /tmp/compiler.log
-        continue-on-error: true
-      - name: Preserve compiler diagnostics
+          set -o pipefail
+          mapfile -t refs < /tmp/refs.txt
+          mkdir -p build
+          if [ "${'$'}{#refs[@]}" -eq 0 ]; then
+            echo "No WorldBox/NeoModLoader reference assemblies are included. A standalone compile cannot resolve game APIs."
+            echo "Compile_Status=BLOCKED_MISSING_REFERENCES" > build/compile-status.txt
+            exit 0
+          fi
+          args=()
+          for f in "${'$'}{refs[@]}"; do args+=("-r:${'$'}f"); done
+          if mcs -langversion:latest -target:library -out:build/ObservatorioDosReinos.dll "${'$'}{args[@]}" src/*.cs 2>&1 | tee build/compiler.log; then
+            echo "Compile_Status=PASS" > build/compile-status.txt
+          else
+            echo "Compile_Status=FAIL" > build/compile-status.txt
+            exit 1
+          fi
+      - name: Upload build diagnostics
         if: always()
-        run: |
-          {
-            echo '## Compile diagnostics'
-            echo 'The build may require WorldBox/NeoModLoader reference assemblies not stored in the repository.'
-            echo '```text'
-            cat /tmp/compiler.log 2>/dev/null || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        uses: actions/upload-artifact@v4
+        with:
+          name: observatorio-build-diagnostics
+          path: build/
