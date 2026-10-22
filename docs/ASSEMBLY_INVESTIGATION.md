@@ -49,3 +49,10 @@ A metadata de `0Harmony.dll` confirma:
 - `HarmonyLib.HarmonyMethod` tem construtor que recebe `MethodInfo`.
 
 Assim, a estratégia reflexiva usada no código corresponde às assinaturas encontradas nessa referência de Harmony. Isso confirma a compatibilidade com a DLL enviada, não com uma versão diferente que possa estar carregada no celular.
+
+
+## Decisão posterior à investigação — 0.6.0-dev
+
+A interface atual não usa mais as rotinas de Harmony investigadas acima. Os prefix/postfix/finalizer do Observatório foram removidos para que o mod não altere a abertura de `StatsWindow` ou as rotinas auxiliares de tooltip. O projeto usa agora `NeoModLoader.api.AbstractWideWindow<T>` e o registro nativo realizado pelo `WindowCreator.CreateEmptyWindow`.
+
+Isso é uma retirada da intervenção do mod, não uma prova de que a NullReference original do jogo foi corrigida. Se o erro ocorrer com esta versão, a nova janela e o erro de status devem ser diagnosticados como dois problemas independentes.
