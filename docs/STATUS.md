@@ -1,33 +1,28 @@
-# Status técnico — Observatório dos Reinos 0.6.0-dev
+# Status técnico — Observatório dos Reinos 0.6.1-dev
 
-## Alterações na fonte
+## Mudanças na revisão 0.6.1-dev
 
-- Removida a implementação antiga do painel em Canvas de tela cheia e os patches Harmony que interceptavam `StatsWindow.OnEnable()` e rotinas de tooltip/seleção.
-- A interface principal agora herda de `AbstractWideWindow<ObservatorioJanelaNativa>`, usa `CreateAndInit("observatorio_dos_reinos", ...)` e registra uma janela nativa através do NeoModLoader.
-- O botão `GOVERNO` é criado como filho de `CanvasMain.instance.canvas_ui` e abre a janela com `ScrollWindow.showWindow(IdJanela)`.
-- Foram adicionados arquivos de localização para o título e o teste automatizado passou a validar invariantes do modelo político local, não o Harmony.
-- O `.gitignore` exclui `tests/` da descoberta recursiva de fontes do NeoModLoader. Sem isso, os stubs de teste poderiam entrar na compilação do próprio mod.
-- O carregamento da UI aguarda `CanvasMain` estar disponível antes de inicializar a janela.
+- O botão `GOVERNO` é criado independentemente da janela `ScrollWindow`; se a janela falhar ao ser construída, o botão não deve desaparecer por causa dessa falha.
+- O botão usa um Canvas próprio com `overrideSorting = true`, ordem de renderização 32000, fundo verde de alto contraste e posição relativa ao canto superior esquerdo de `CanvasMain.canvas_ui`.
+- O log registra explicitamente as condições `CANVAS_MAIN_NULL`, `CANVAS_UI_NULL`, `CANVAS_UI_INACTIVE`, `NATIVE_WINDOW_BUTTON_CREATED` ou `NATIVE_WINDOW_BUTTON_FAILED`.
+- A janela é inicializada depois que o botão já existe. Se a criação falhar, o log emite `JANELA_NATIVA_FALHOU` e o texto do atalho muda para `GOVERNO !`. Ao tocar no botão, uma falha de abertura é registrada como `NATIVE_WINDOW_OPEN_FAILED`.
+- Não há patches Harmony no Observatório. A janela nativa de status volta a seguir o comportamento do jogo sem intervenção deste mod; isso não constitui correção da NullReference original.
 
 ## Limitações conhecidas
 
-- A janela nativa e o botão ainda **não foram confirmados no WorldBox rodando no telefone**.
-- A validação via stubs apenas checa compilação/estrutura do código e lógica de modelo. Não substitui compilação contra as DLLs do WorldBox 0.51.4/NeoModLoader nem teste de interação real.
-- O botão adiciona um controle visível ao Canvas do jogo, mas pode precisar de ajuste de posição dependendo da escala/orientação do aparelho.
-- As ações de governo, diplomacia, reunião e RPG ainda registram preferências/propostas dentro da sessão. Elas não alteram estados internos reais de reinos/cidades nem ordenam guerra ou alianças.
-- O erro original da janela de status não é mais interceptado pelo Observatório; se continuar acontecendo sem os patches do mod, a causa fica fora desta implementação e precisa ser investigada separadamente.
+- O usuário informou que na 0.6.0-dev o botão não apareceu e o erro do status continuou.
+- Esta revisão tenta eliminar uma falha de ordem de inicialização existente: antes, a criação da janela era chamada antes do atalho, então uma exceção na janela impedia o botão de ser construído.
+- A janela e o botão 0.6.1-dev ainda não foram confirmados no telefone.
+- O CI usa stubs para verificar a estrutura do código; não valida a UI em runtime.
+- A compilação com as DLLs reais do aparelho não foi executada neste runner, pois não contém as referências privadas.
+- As ações de Governo/Diplomacia/Reuniões/RPG continuam armazenando escolhas locais de sessão; não modificam entidades/relações/guerras nativas.
 
-## Download de código-fonte
+## Como diagnosticar no aparelho
 
-ZIP da branch `scaffold/observatorio-dos-reinos`: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip. É fonte compilável pelo fluxo de mods de código do NeoModLoader; não é uma DLL pronta. O `.gitignore` exclui os testes e stubs da compilação dentro do jogo.
+Após iniciar o mundo, procure `NATIVE_WINDOW_BUTTON_CREATED`. Se houver `CANVAS_MAIN_NULL`, `CANVAS_UI_NULL` ou `CANVAS_UI_INACTIVE`, o log informa por que o botão não foi inserido. Ao tocar no botão, qualquer exceção de abertura aparece em `NATIVE_WINDOW_OPEN_FAILED`; falha de construção aparece em `JANELA_NATIVA_FALHOU`.
 
-## Protocolo de aceitação
+Para a exceção do status, a fonte desta versão já não a intercepta. É necessário o log atualizado que contenha a stack trace do erro após reproduzi-lo nesta versão; o antigo pacote de referência não é suficiente para provar a causa em execução.
 
-1. Instalar apenas a nova versão do Observatório.
-2. Confirmar no log `NATIVE_WINDOW_CREATED`, `NATIVE_WINDOW_BUTTON_CREATED` e `JANELA_NATIVA_PRONTA`.
-3. Tocar em `GOVERNO`; a janela deve abrir no espaço nativo do WorldBox, com controles de fechar/ESC do jogo.
-4. Alternar entre Governo, Diplomacia, Reuniões e RPG; verificar textos, campos e botões.
-5. Fechar a janela e abrir o status nativo para confirmar que o Observatório não instalou patches de Harmony nele.
-6. Repetir em retrato e paisagem; se a janela ou botão sumir, guardar o log completo.
+## Download
 
-**Estado honesto:** mudança de arquitetura escrita no repositório; teste real no aparelho pendente.
+ZIP de código-fonte: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
