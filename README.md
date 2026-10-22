@@ -1,37 +1,39 @@
 # Observatório dos Reinos — WorldBox Android
 
-Mod original 2D para WorldBox Android com foco em geopolítica, diplomacia e interações de RPG. O objetivo é acrescentar sistemas próprios sem substituir a simulação original do jogo.
+Mod original 2D para WorldBox Android, com governo e diplomacia ligados à mecânica nativa de controlar personagens. O objetivo é que, ao controlar um rei ou uma rainha, o jogador possa administrar o reino e interagir com outros reinos sem perder os controles normais do personagem.
 
-## Estado atual
+## Experiência desejada
 
-A classe de entrada do NeoModLoader foi confirmada pelo usuário no jogo: o mod foi reconhecido e a mensagem de diagnóstico apareceu no log. A versão mais recente do código acrescenta um protótipo de regras políticas isoladas, mas **essa atualização ainda precisa ser recompilada/carregada no aparelho**.
+- Detectar o rei/rainha que o jogador está controlando e identificar seu reino.
+- Abrir um painel de governo para definir regras e administrar o reino.
+- Convocar reuniões com vilas/cidades e personagens importantes.
+- Solicitar reuniões diplomáticas com outros reinos.
+- Negociar tratados, comércio, alianças, rivalidades e guerras.
+- Criar eventos e diálogos de RPG com escolhas e consequências no mundo.
 
-## Primeira camada de sistemas
+## Estado atual confirmado
 
-- Cadastro interno de entidades políticas por ID e nome.
-- Estabilidade e legitimidade (0–100) e tesouro (0–1.000.000).
-- Relações diplomáticas do mod: neutra, comércio, aliança, rivalidade e guerra.
-- Opinião entre reinos (-100 a +100).
-- Proteção contra relações duplicadas quando os IDs são informados em ordem invertida.
-- Autoteste reportado no log: dois reinos simulados e uma relação de comércio.
+O usuário confirmou que o NeoModLoader reconhece o mod e que a mensagem de carregamento aparece no log. O usuário também confirmou que o autoteste político de `0.2.0-dev` apareceu corretamente no log.
 
-**Importante:** são dados internos de protótipo; ainda não leem nem alteram os reinos reais do mundo. Nenhuma guerra, cidade, unidade ou relação original do WorldBox é modificada nesta etapa.
+O código atual contém um protótipo de estado político (estabilidade, legitimidade, tesouro, relações e opinião), mas o teste usa dois reinos fictícios. **Ainda não há ligação com o personagem controlado, reinos/cidades reais ou painel jogável.** O teste confirmou inicialização, não a experiência final.
+
+## Rota de desenvolvimento
+
+1. Confirmar na assembly exata do WorldBox Android 0.51.4 as APIs para personagem controlado, rei/rainha, reino, cidade e UI.
+2. Ler e registrar informações reais sem alterar a simulação.
+3. Detectar quando o jogador controla um rei/rainha e mapear o reino correspondente.
+4. Criar um painel de governo simples, inicialmente somente leitura.
+5. Habilitar decisões internas reversíveis com teste em mundo descartável.
+6. Integrar reuniões, tratados e diplomacia usando APIs nativas confirmadas.
+7. Implementar diálogos/eventos de RPG e persistência sem corromper saves.
 
 ## Arquivos
 
 - `mod.json`: manifesto do NeoModLoader.
-- `src/ObservatorioMod.cs`: entrada e regras políticas iniciais.
-- `docs/STATUS.md`: estado confirmado, limitações e próximos passos.
-- `docs/TEST_PROTOCOL.md`: protocolo para testar no Android.
+- `src/ObservatorioMod.cs`: entrada e protótipo de regras políticas.
+- `docs/STATUS.md`: progresso, requisitos e limitações confirmadas.
+- `docs/TEST_PROTOCOL.md`: etapas de teste no Android.
 
-## Próximos passos
+## Compatibilidade e segurança
 
-1. Reinstalar/atualizar a pasta do mod com esta versão do fonte e confirmar a nova linha de autoteste.
-2. Investigar os tipos e membros reais de reinos e cidades na assembly exata da versão 0.51.4 instalada.
-3. Adicionar leitura real do mundo, inicialmente somente leitura.
-4. Criar painel 2D próprio e testar em orientação horizontal e vertical.
-5. Construir eventos diplomáticos, comércio, crises políticas e interações RPG apenas depois de confirmar APIs e persistência.
-
-## Compatibilidade e origem
-
-O protótipo usa a estrutura pública documentada do NeoModLoader. O código atualizado não foi compilado de forma independente nem validado em runtime no aparelho. Referências comunitárias de APIs de WorldBox 0.51.2 são apenas pistas para a 0.51.4, não prova de compatibilidade. Não inclui DLLs do jogo/carregador nem reutiliza código ou assets do Worldfall.
+O código atualizado foi testado pelo usuário através da linha de autoteste no log, mas ainda não foi compilado de forma independente por uma toolchain externa. Referências públicas de APIs da versão 0.51.2 são apenas pistas para a 0.51.4. Nenhuma relação, guerra, cidade ou unidade nativa é alterada no estado atual. Não incluir DLLs do jogo/carregador nem reutilizar código ou assets do Worldfall.
