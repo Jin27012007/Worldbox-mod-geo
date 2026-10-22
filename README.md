@@ -1,23 +1,22 @@
 # Observatório dos Reinos — WorldBox Android
 
-Mod 2D original que pretende acrescentar governo/diplomacia ao controlar um rei/rainha. Alvo informado: WorldBox Android 0.51.4 com NeoModLoader.
+Projeto original para adicionar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado pelo usuário: WorldBox Android 0.51.4 + NeoModLoader.
 
-## 0.5.1-dev
-- Menu Unity Canvas com abas Governo, Diplomacia, Reuniões e RPG.
-- Tenta localizar o botão nativo de status e inserir `GOV` acima dele; o atalho reserva `GOVERNO` permanece disponível quando o botão nativo não é identificado.
-- Usa `Screen.safeArea` para manter Canvas e controles dentro da área visível ao girar o aparelho.
-- Mostra uma faixa de diagnóstico (`OBSERVATORIO 0.5.1-dev`, resolução, área segura, Canvas ativo e botão nativo encontrado) e registra quando o fallback de `StatsWindow` é chamado.
-- O fallback intercepta somente a `NullReferenceException` com stack relacionada a `showWhoIsSelected`/`showWorldTipSelected` e abre o painel alternativo. Isso é recuperação da interface, não correção comprovada do campo nulo do jogo.
+## `0.5.2-dev`
+A revisão mantém um Canvas Unity UI com quatro abas de protótipo e acrescenta diagnóstico visível do estado da UI: resolução, área segura, Canvas ativo, botão nativo localizado e fallback visível. Um finalizer Harmony tenta interceptar apenas a NullReferenceException cujo stack contém `showWhoIsSelected` ou `showWorldTipSelected` durante `StatsWindow.OnEnable`, fechar a janela nativa incompleta e abrir o painel alternativo.
 
-## Evidência atual
-A captura de log do usuário confirma a falha na UI nativa do status do reino: `PowerTabController.showWhoIsSelected` durante `StatsWindow.OnEnable`, aberto por `SelectedPowerTabButtons.clickOpenMain`. A assembly publicizada enviada não bate exatamente com os nomes da stack ao vivo, por isso a causa interna exata ainda é incerta. A UI das versões anteriores não apareceu no aparelho; esta revisão tem diagnósticos visíveis para saber se o código está realmente sendo executado.
+## O que o log realmente comprovou
+A captura do usuário mostra repetidamente `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` chamado durante `StatsWindow.OnEnable()`, via `SelectedPowerTabButtons.clickOpenMain()`. As versões anteriores não fizeram o painel/fallback aparecer no dispositivo. A DLL publicizada fornecida tem nomes diferentes, então ainda não se sabe qual objeto runtime está nulo, nem se o patch Harmony foi instalado/acionado na revisão testada.
 
-## Teste
-1. Faça backup da pasta atual do mod e instale o ZIP deste branch.
-2. Em retrato, procure a faixa `OBSERVATORIO 0.5.1-dev` e o botão `GOVERNO`. Abra o painel.
-3. Gire para paisagem e confirme que a faixa/atalho ainda aparecem e que o painel pode ser aberto.
-4. Toque no botão nativo de status do reino. Se a proteção executar, o log deverá conter `FINALIZER ACIONADO` e o painel alternativo deverá abrir.
-5. Envie capturas nos dois sentidos e as mensagens do log caso falhe.
+## Próximo teste — obrigatório antes de outro patch visual
+1. Faça backup e instale o ZIP da branch `scaffold/observatorio-dos-reinos`.
+2. Confirme se o banner `OBSERVATORIO 0.5.1-dev`/`0.5.2-dev` aparece.
+3. Abra o log desde o carregamento e procure `Canvas, botao reserva e painel admin prontos`, `Protecao de fallback instalada`, `UI administrativa via Canvas criada`.
+4. Ao abrir o status do reino, verifique `FINALIZER ACIONADO`.
+5. Se as mensagens de carregamento faltarem, o código não está efetivamente executando; corrigir a cadeia de instalação/compilação antes de alterar layout. Se aparecem mas o finalizer nunca roda, conferir assinatura/método real do Harmony contra a assembly exata.
 
-## Limitações honestas
-O código foi revisado estruturalmente, mas não foi compilado independentemente nem validado nesta versão no dispositivo. Os campos e botões ainda criam rascunhos locais e não alteram dados reais do mundo. A detecção do rei/reino ainda precisa ser ligada à API correta. Não incluir DLLs do jogo/loader nem código/assets do Worldfall.
+## Limitações
+- Não afirmar que o painel está funcionando até ser visto no telefone.
+- O campo de rei/reino real e as ações políticas continuam não integrados.
+- Botões atuais não alteram as entidades do mundo.
+- Não incluir DLLs do jogo ou loader; não copiar código/assets de Worldfall.
