@@ -440,7 +440,14 @@ namespace ObservatorioDosReinos
                 else if(horizontal!=null)
                 {
                     Transform grand=pai.parent;
-                    if(grand!=null){go.transform.SetParent(grand,false);nr.position=velho.position+new Vector3(0f,velho.rect.height+6f,0f);nr.SetAsLastSibling();}
+                    if(grand!=null)
+                    {
+                        go.transform.SetParent(grand,false);
+                        nr.anchorMin=new Vector2(0.5f,0.5f);nr.anchorMax=new Vector2(0.5f,0.5f);
+                        nr.pivot=new Vector2(0.5f,0.5f);nr.sizeDelta=new Vector2(velho.rect.width,velho.rect.height);
+                        nr.position=velho.position+new Vector3(0f,velho.rect.height+6f,0f);
+                        nr.SetAsLastSibling();
+                    }
                     else {nr.SetSiblingIndex(original.transform.GetSiblingIndex());}
                 }
                 else
