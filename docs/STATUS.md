@@ -1,34 +1,30 @@
-# Status técnico — Observatório dos Reinos 0.6.2-dev
+# Status técnico — Observatório dos Reinos 0.6.3-dev
 
-## Mudanças desta revisão
+## Inserção do botão
 
-- Removido o botão administrativo no canto superior esquerdo; o objetivo agora é inserir `GOV` no mesmo grupo visual dos controles nativos de seleção/posse.
-- A rotina procura `SelectedPowerTabButtons` e `SelectedPowerTabTopButtons`, com suporte a nomes de campos `possession/possess`, `spectate`, `open_window/open_main/info` e fallback por nome de objetos filhos.
-- O novo botão usa como referência o layout e a imagem de um botão nativo e é inserido como irmão no mesmo contêiner.
-- A visibilidade é sincronizada com os métodos refletidos `SelectedUnit.isSet()` e `SelectedObjects.isNanoObjectSet()`, usados pela UI nativa de seleção. Não deve ficar visível sem uma seleção controlável.
-- A janela de governo continua sendo `AbstractWideWindow<ObservatorioJanelaNativa>`.
-- O Observatório não instala patches Harmony para `StatsWindow`, `showWhoIsSelected` ou `showWorldTipSelected`. O mod não altera a abertura da janela nativa de status.
+- O atalho global foi removido.
+- Na inicialização, o mod inspeciona as assemblies carregadas e tenta conectar um postfix Harmony ao método `Update()` de `SelectedPowerTabButtons`, `SelectedPowerTabTopButtons` ou classes `SelectedPowerTab*Buttons`.
+- Depois de cada atualização do painel, o código procura os campos nativos de posse/espectador/informações e insere `GOV` como irmão do botão de referência. Se não encontrar campo, usa outro Button filho ou, como último fallback, a raiz do próprio componente.
+- A varredura periódica da hierarquia de `CanvasMain.canvas_ui` continua como fallback se nenhum botão tiver sido registrado.
+- O botão não depende da janela estar aberta para ser criado. O clique chama `ObservatorioJanelaNativa.Abrir()` e registra sucesso/falha no log.
 
-## Logs para verificar no dispositivo
+## Evidências esperadas no log
 
-- `NATIVE_CONTROL_BUTTON_CREATED`: o botão foi inserido; a mensagem indica classe, campo de referência e pai do botão.
-- `PAINEL_NPC_AGUARDANDO`: as classes de controle ainda não foram encontradas na cena.
-- `PAINEL_NPC_ENCONTRADO_MAS_BOTAO_NAO_INSERIDO`: o componente foi localizado mas não foi possível descobrir/inserir o botão.
-- `NATIVE_CONTROL_BUTTON_FAILED`: ocorreu uma exceção ao construir o botão.
-- `SELECAO_REFLECTION_FALHOU`: não foi possível consultar o estado da seleção.
+- `NPC_CONTROL_HOOK_SUMMARY`: quantidade de classes encontradas e hooks conectados.
+- `NPC_CONTROL_HOOK_INSTALLED`: nome completo do componente cujo `Update()` foi interceptado.
+- `NATIVE_CONTROL_BUTTON_CREATED`: nome da classe de controle e contêiner no qual o botão foi inserido.
+- `NPC_CONTROL_REFERENCE_FALLBACK`: nenhum campo de referência conhecido foi encontrado; inclui um resumo dos botões filhos.
+- `NPC_CONTROL_PANEL_NOT_FOUND`: nem hook nem fallback localizaram a classe esperada.
+- `NATIVE_CONTROL_BUTTON_FAILED`: exceção ao construir o botão.
 
-## Validação
+## Validação e limites
 
-- GitHub Actions do fonte atualizado: https://github.com/Jin27012007/Worldbox-mod-geo/actions/runs/39858614380
-- Build contra stubs: aprovado com 0 warnings e 0 errors.
-- Teste automatizado: invariantes do modelo político local aprovados.
-- Build contra as DLLs reais: não executado pelo runner público, pois as referências privadas não estão presentes.
-- A nova posição do botão e sua interação ainda **não foram confirmadas no telefone**.
+- O código foi modificado para usar o ciclo de atualização real da aba como gatilho primário.
+- O CI valida compilação contra stubs e invariantes do modelo político local, não a renderização no Unity.
+- A nova revisão ainda precisa ser confirmada no WorldBox Android em execução; não existe confirmação visual automática neste ambiente.
+- O Observatório não interfere na janela nativa de status.
+- Os controles de governo, diplomacia e RPG continuam registrando dados locais da sessão; não mudam os reinos reais.
 
-## Limitações funcionais
-
-A janela tem páginas Governo, Diplomacia, Reuniões e RPG. Os botões registram preferências e propostas localmente na sessão; ainda não alteram o estado real dos reinos. A remoção dos patches do Observatório permite que a janela de status siga o fluxo original, mas não prova que a exceção relatada foi causada por esses patches nem que a causa do jogo tenha sido corrigida.
-
-## Download de código-fonte
+## Download
 
 https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
