@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p build
-          required=(references/NeoModLoader.dll references/Assembly-CSharp-Publicized.dll references/UnityEngine.dll references/UnityEngine.CoreModule.dll references/UnityEngine.UI.dll references/0Harmony.dll)
+          required=(references/NeoModLoader.dll references/Assembly-CSharp-Publicized.dll references/UnityEngine.dll references/UnityEngine.CoreModule.dll references/UnityEngine.UI.dll references/UnityEngine.TextRenderingModule.dll references/UnityEngine.TextCoreTextEngineModule.dll references/UnityEngine.TextCoreFontEngineModule.dll references/UnityEngine.UIModule.dll)
           missing=0
           for f in "${required[@]}"; do
             if [ ! -f "${f}" ]; then echo "Missing private reference: ${f}"; missing=1; fi
