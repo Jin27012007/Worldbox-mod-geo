@@ -2,18 +2,17 @@
 
 Projeto original para acrescentar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado: WorldBox Android 0.51.4 + NeoModLoader.
 
-## 0.5.7-dev
-- Canvas persistente como raiz de tela cheia; `SafeAreaRoot` filho é reajustado pelo controlador principal após rotação.
-- Atalho `GOVERNO` permanece disponível quando o painel está fechado, mesmo se o botão `GOV` for localizado perto das informações nativas.
-- Prefix Harmony preventivo tenta pular a atualização auxiliar de seleção/tooltip apenas durante `StatsWindow.OnEnable` / `WindowMetaGeneric.OnEnable`; callers normais seguem originais.
-- Finalizer é a segunda barreira: quando a NullReference conhecida ocorre, procura fechar o `ScrollWindow` externo inteiro e abrir o menu alternativo.
-- Logs mostram estado real de instalação dos patches e FullName/MVID das assemblies em runtime.
+## Revisão 0.5.8-dev
+- Canvas persistente em tela cheia com `SafeAreaRoot` filho, recalculado pela área segura após rotação. O botão reserva `GOVERNO` permanece acessível.
+- Prefix Harmony estabelece um escopo de abertura em `StatsWindow.OnEnable`. O helper de seleção/tooltip é ignorado apenas durante esse escopo; postfix e finalizer restauram o valor anterior por `__state`, incluindo chamadas aninhadas.
+- Finalizer é segunda barreira para a NullReference conhecida e tenta fechar a janela externa `ScrollWindow` antes de abrir o painel alternativo.
+- Logs registram instalação real dos hooks e FullName/MVID das assemblies carregadas.
 
-## Compilação
-O CI anterior passou contra stubs Unity/NML com 0 erros/avisos. Uma refatoração posterior foi corretamente rejeitada pelo CI porque o helper `ConstruirHarmonyMethod` havia sumido durante a edição; ele foi restaurado no commit `dd553b5cf329ee0e7e84cc58c390e3ca9bd3ed61`. Aguarde o CI desse commit antes de considerar `0.5.7-dev` validado. Esse build é uma verificação de fonte, não uma DLL instalável. O build real usa agora `netstandard2.1` e referências locais, mas não pode rodar no runner público sem as DLLs privadas.
+## Resultado de compilação
+A revisão 0.5.8-dev passou no GitHub Actions contra stubs Unity/NeoModLoader com **0 erros e 0 avisos**: https://github.com/Jin27012007/Worldbox-mod-geo/actions/runs/39846610447. Isso valida sintaxe e tipos internos contra API simulada, mas não é uma DLL instalável nem uma validação da API real. A compilação real foi ignorada porque as DLLs privadas não estão no runner público.
 
-## Investigação da janela
-A DLL de referência fornecida contém `StatsWindow.OnEnable()` chamando `PowerTabController.showWorldTipSelected(String, Boolean)`, enquanto a stack do telefone mostra `showWhoIsSelected` e `SelectedPowerTabButtons`. Consulte [`docs/ASSEMBLY_INVESTIGATION.md`](docs/ASSEMBLY_INVESTIGATION.md) para hashes, MVIDs e IL. A nova linha `Runtime assembly fingerprint` deve identificar as DLLs exatas carregadas pelo telefone.
+## Investigação
+A assembly enviada chama `PowerTabController.showWorldTipSelected`, mas o log do telefone menciona `showWhoIsSelected`; também há divergência nos nomes da classe de botões. Consulte [`docs/ASSEMBLY_INVESTIGATION.md`](docs/ASSEMBLY_INVESTIGATION.md) para hashes, MVIDs e análise de IL. O fingerprint adicionado ao log do mod permite identificar o runtime real.
 
 ## Limitações
-A revisão 0.5.7-dev não foi testada no Android e nenhuma DLL final foi validada contra o runtime real. As opções administrativas continuam demonstrativas e não alteram reinos, cidades, alianças ou guerras.
+A revisão 0.5.8-dev ainda não foi testada no telefone. A causa exata da NullReference continua não comprovada; as ações políticas permanecem demonstrações e não alteram reinos reais.
