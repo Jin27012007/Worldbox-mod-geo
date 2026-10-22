@@ -2,36 +2,34 @@
 
 ## Ambiente confirmado
 - WorldBox Android 0.51.4; NeoModLoader funciona no aparelho.
-- O usuário confirmou que tanto o carregamento inicial quanto o autoteste político `reinos=2, relacoes=1, tipo=Comercio, opiniao=10` apareceram nos logs.
-- Na orientação vertical, apenas a janela do menu de mods fica visualmente cortada; o jogo em si está normal.
+- O usuário confirmou que o carregador, o autoteste político e o diagnóstico de reflexão aparecem/funcionam no aparelho.
+- Apenas o menu de mods apresenta corte visual na orientação vertical; o jogo funciona normalmente.
 
-## Requisito central do projeto
-O mod deve aproveitar o controle nativo de personagem: quando o jogador controlar um rei/rainha, terá acesso ao governo do reino daquele personagem. O objetivo é administrar o reino, definir regras, contatar vilas/cidades, convocar reuniões e negociar tratados, alianças e guerras com outros reinos. Reuniões/diálogos de RPG devem produzir escolhas e consequências. A identidade visual deve aproveitar o padrão do jogo; não criar um framework de UI de aparência alheia sem necessidade.
+## Requisito central
+Aproveitar o controle nativo de personagem: ao controlar um rei/rainha, o jogador deve receber ferramentas de governo para o reino daquele personagem. Funcionalidades desejadas: políticas internas, administração, contato com vilas/cidades, reuniões, tratados, alianças, guerras e interações de RPG. UI deve usar a identidade visual padrão do jogo.
 
-## Implementação atual no ramo de trabalho
-- Manifesto NML e entrada `BasicMod<Main>`.
-- Modelos políticos locais de protótipo: estabilidade, legitimidade, tesouro, tipos de relação e opinião.
-- Diagnóstico por reflexão recém-adicionado: procura `MapBox.instance`, tenta contar `kingdoms`, `cities` e `units`, e registra nomes de membros relacionados a seleção/controle/jogador/rei/reino/cidade em tipos candidatos. A inspeção apenas lê metadados e coleções; não chama APIs de mutação do jogo.
+## Implementado no ramo
+- Entrada NML e modelo político interno de protótipo.
+- Diagnóstico por reflexão somente leitura que tenta ler `MapBox.instance`, contar gerenciadores `kingdoms`, `cities`, `units` e localizar membros cujos nomes sugerem seleção, controle, personagem, rei/rainha, reino e cidade em tipos candidatos.
+- Probe expandido com pistas adicionais e até 35 correspondências por tipo para facilitar a descoberta de APIs na build exata.
 
-## Importante sobre a atualização mais recente
-O código de diagnóstico foi enviado ao ramo, mas ainda não foi testado no telefone. Precisamos garantir que ele compila/carrega no NML Android. O log esperado inclui `Diagnostico do mundo: mapa=...` e `Diagnostico de API (somente leitura): ...`. Se a compilação falhar, usar a exceção real para corrigir.
+## Próximo teste
+O usuário relatou que encontrou o diagnóstico e que funcionou, mas não colou os valores das linhas no chat. A versão mais recente ampliou o diagnóstico; ainda deve ser validada no aparelho. Procurar no log:
+- `Diagnostico do mundo:`
+- `Diagnostico de API (somente leitura):`
 
-## Ainda não implementado
-- Detectar com certeza o personagem que o jogador está controlando.
-- Identificar rei/rainha e seus vínculos reais de reino/cidade.
-- Painel de governo ou botões de UI.
-- Regras que alterem a simulação, reuniões, tratados, guerra, administração ou persistência.
-- O modelo político ainda não é conectado a reinos reais; `diagnostico-a/b` são exemplos fictícios apenas para smoke test.
+O código não deve ser considerado uma implementação de detecção de rei até que a API/valores explícitos sejam identificados. Também não há painel de governo jogável ou ações diplomáticas integradas neste momento.
 
 ## Próximas fases
-1. Validar no aparelho o novo diagnóstico de reflexão.
-2. Com base nos nomes reais de membros exibidos no log, implementar uma leitura de dados reais e detecção do personagem controlado sem supor nomes de API.
-3. Adicionar uma interface simples aproveitando componentes/estilo nativo do WorldBox, começando em modo somente leitura.
-4. Implementar decisões internas pequenas e reversíveis em mundo descartável.
-5. Habilitar reunião, diplomacia e eventos de RPG quando as APIs nativas correspondentes tiverem sido identificadas e testadas.
+1. Validar o probe expandido, obter os membros reais disponíveis.
+2. Implementar leitor real de personagem/reino/cidade de modo fail-soft e somente leitura.
+3. Detectar o personagem que está sendo controlado; confirmar o papel de rei/rainha.
+4. Criar um painel simples com estilo do WorldBox, inicialmente somente leitura.
+5. Adicionar políticas internas reversíveis e testar em mundo descartável.
+6. Implementar reuniões, tratados, alianças, guerras e eventos de RPG usando APIs confirmadas.
 
-## Segurança e distribuição
-- Nenhuma cidade, unidade, guerra ou relação nativa é alterada pela versão atual.
-- Não embutir DLLs do jogo ou do NeoModLoader.
-- Não reutilizar código ou assets de Worldfall.
-- Referências públicas a APIs da versão 0.51.2 são apenas pistas, não prova de compatibilidade com a 0.51.4.
+## Limites e segurança
+- O protótipo político atual não altera o mundo; os reinos de diagnóstico são fictícios.
+- A sonda de reflexão não chama métodos que alterem o jogo.
+- APIs encontradas em documentação comunitária de WorldBox 0.51.2 são pistas, não confirmação da versão 0.51.4.
+- Nenhuma DLL do jogo/loader nem código/assets de Worldfall incluídos.
