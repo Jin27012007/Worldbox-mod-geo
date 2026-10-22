@@ -1,8 +1,8 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.1.0-dev",
-  "description": "Teste experimental de carregamento para WorldBox Android; somente diagnostico.",
+  "version": "0.2.0-dev",
+  "description": "Prototipo de sistemas politicos locais e diplomacia experimental para WorldBox Android.",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
