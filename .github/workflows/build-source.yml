@@ -7,47 +7,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  compile:
+  source-check:
+    name: Compile source against isolated Unity/NML stubs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Mono compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mono-devel
-      - name: Locate reference assemblies
-        shell: bash
-        run: |
-          mkdir -p build
-          find . -type f -iname '*.dll' -print | sort > build-refs.txt
-          grep -Ei 'Assembly-CSharp(-Publicized)?|NeoModLoader|0Harmony|UnityEngine(\.CoreModule|\.UI)?' build-refs.txt || true
-      - name: Compile mod against references
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p build
-          grep -Ei 'Assembly-CSharp(-Publicized)?\.dll|Assembly-CSharp\.dll|NeoModLoader\.dll|UnityEngine\.dll|UnityEngine\.CoreModule\.dll|UnityEngine\.UI\.dll|0Harmony\.dll' build-refs.txt > build/refs.txt || true
-          mapfile -t refs < build/refs.txt
-          if [ "${'$'}{#refs[@]}" -lt 4 ]; then
-            echo "BLOCKED_MISSING_REFERENCE_ASSEMBLIES" > build/compile-status.txt
-            echo "As referências de Unity/WorldBox/NeoModLoader não estão presentes. Compilação independente válida não pode ocorrer sem elas." > build/NOT_COMPILED.txt
-            exit 0
-          fi
-          args=()
-          for f in "${'$'}{refs[@]}"; do args+=("-r:${'$'}f"); done
-          if mcs -langversion:latest -target:library -out:build/ObservatorioDosReinos.dll "${'$'}{args[@]}" src/*.cs > build/compiler.log 2>&1; then
-            echo "PASS" > build/compile-status.txt
-          else
-            echo "FAIL" > build/compile-status.txt
-            cat build/compiler.log
-            exit 1
-          fi
-      - name: Upload build results
+      - name: Show preinstalled .NET SDK
+        run: dotnet --info
+      - name: Compile C# source and catch source-level errors
+        run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
+      - name: Report limits
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: observatorio-build-results
-          path: |
-            build/
-            build-refs.txt
+        run: |
+          {
+            echo '## Build interpretation'
+            echo 'This job checks source syntax and internal typing against isolated Unity/NeoModLoader stubs.'
+            echo 'It is not an installable mod DLL and does not validate the exact game/Harmony runtime API.'
+            echo 'A final mod build still requires private reference assemblies from WorldBox 0.51.4 + NeoModLoader.'
+          } >> "$GITHUB_STEP_SUMMARY"
