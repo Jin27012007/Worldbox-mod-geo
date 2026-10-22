@@ -522,50 +522,127 @@ namespace ObservatorioDosReinos
                 Type harmonyType=Type.GetType("HarmonyLib.Harmony, 0Harmony");
                 Type harmonyMethodType=Type.GetType("HarmonyLib.HarmonyMethod, 0Harmony");
                 Type statsType=Type.GetType("StatsWindow, Assembly-CSharp");
+                Type powerType=Type.GetType("PowerTabController, Assembly-CSharp");
                 if(harmonyType==null||harmonyMethodType==null||statsType==null)
                 {
-                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: ausente Harmony ou StatsWindow. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null));
-                    return;
-                }
-                MethodInfo[] candidatos=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.DeclaredOnly);
-                List<string> ons=new List<string>();
-                for(int i=0;i<candidatos.Length;i++)
-                    if(candidatos[i].Name=="OnEnable")ons.Add(candidatos[i].ToString());
-                Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",ons.ToArray()));
-
-                MethodInfo original=null;
-                for(int i=0;i<candidatos.Length;i++)
-                    if(candidatos[i].Name=="OnEnable" && candidatos[i].GetParameters().Length==0){original=candidatos[i];break;}
-                MethodInfo finalizer=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
-                ConstructorInfo ctor=harmonyType.GetConstructor(new Type[]{typeof(string)});
-                if(original==null||finalizer==null||ctor==null)
-                {
-                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: alvo/ctor/finalizer nao encontrado. OnEnable="+(original!=null)+", finalizer="+(finalizer!=null)+", HarmonyCtor="+(ctor!=null));
+                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: referencias ausentes. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null)+", PowerTabController="+(powerType!=null));
                     return;
                 }
 
-                object harmony=ctor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusfallback"});
-                MethodInfo patch=null;
-                MethodInfo[] ms=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
-                for(int i=0;i<ms.Length;i++)
+                MethodInfo[] statsMethods=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
+                List<string> onEnableCandidates=new List<string>();
+                MethodInfo statsOnEnable=null;
+                for(int i=0;i<statsMethods.Length;i++)
                 {
-                    if(ms[i].Name!="Patch")continue;
-                    ParameterInfo[] ps=ms[i].GetParameters();
-                    if(ps.Length==5 && typeof(MethodBase).IsAssignableFrom(ps[0].ParameterType)){patch=ms[i];break;}
+                    if(statsMethods[i].Name!="OnEnable")continue;
+                    onEnableCandidates.Add(statsMethods[i].ToString());
+                    if(statsMethods[i].GetParameters().Length==0)statsOnEnable=statsMethods[i];
                 }
-                if(patch==null)
+                Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",onEnableCandidates.ToArray()));
+
+                ConstructorInfo harmonyCtor=harmonyType.GetConstructor(new Type[]{typeof(string)});
+                if(harmonyCtor==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: construtor Harmony(string) ausente.");return;}
+                object harmony=harmonyCtor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusguard"});
+                MethodInfo[] harmonyMethods=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
+                MethodInfo patch=EncontrarHarmonyPatch(harmonyMethods);
+                if(patch==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: assinatura Harmony.Patch nao reconhecida: "+ListarAssinaturas(harmonyMethods,"Patch"));return;}
+
+                MethodInfo prefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("PrefixSelectedInfoWhenOpeningStatus",BindingFlags.Public|BindingFlags.Static);
+                MethodInfo finalizerMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
+                object prefixHarmony=prefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,prefixMethod);
+                object finalizerHarmony=finalizerMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,finalizerMethod);
+                bool installedAny=false;
+
+                if(powerType!=null && prefixHarmony!=null)
                 {
-                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: Harmony.Patch signature nao reconhecida. Sobrecargas: "+ListarAssinaturas(ms,"Patch"));
-                    return;
+                    MethodInfo[] powerMethods=powerType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
+                    List<string> candidates=new List<string>();
+                    int count=0;
+                    for(int i=0;i<powerMethods.Length;i++)
+                    {
+                        MethodInfo candidate=powerMethods[i];
+                        if(candidate.Name!="showWhoIsSelected" && candidate.Name!="showWorldTipSelected")continue;
+                        ParameterInfo[] ps=candidate.GetParameters();
+                        if(ps.Length!=2 || ps[0].ParameterType!=typeof(string) || ps[1].ParameterType!=typeof(bool))continue;
+                        candidates.Add(candidate.ToString());
+                        try
+                        {
+                            patch.Invoke(harmony,new object[]{candidate,prefixHarmony,null,null,null});
+                            count++;
+                            Debug.Log("[Observatorio] STATUS_INFO_PREFIX_INSTALLED: "+candidate.DeclaringType.FullName+"."+candidate.Name+" | "+candidate);
+                        }
+                        catch(Exception ex)
+                        {
+                            Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_FAILED: "+candidate+" | "+ex.GetType().Name+": "+ex.Message);
+                        }
+                    }
+                    Debug.Log("[Observatorio] status info method candidates: "+string.Join(" || ",candidates.ToArray()));
+                    installedAny=count>0;
                 }
-                object hm=ConstruirHarmonyMethod(harmonyMethodType,finalizer);
-                if(hm==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: nao foi possivel construir HarmonyMethod.");return;}
-                object[] args=new object[]{original,null,null,null,hm};
-                patch.Invoke(harmony,args);
-                patchInstalado=true;
-                Debug.Log("[Observatorio] STATUS_PATCH_INSTALLED: "+original.DeclaringType.FullName+"."+original.Name+" | "+original);
+                else Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_NOT_INSTALLED: PowerTabController="+(powerType!=null)+", prefix="+(prefixHarmony!=null));
+
+                if(statsOnEnable!=null && finalizerHarmony!=null)
+                {
+                    try
+                    {
+                        patch.Invoke(harmony,new object[]{statsOnEnable,null,null,null,finalizerHarmony});
+                        installedAny=true;
+                        Debug.Log("[Observatorio] STATUS_WINDOW_FINALIZER_INSTALLED: "+statsOnEnable);
+                    }
+                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_FAILED: "+ex.GetType().Name+": "+ex.Message);}
+                }
+                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", finalizer="+(finalizerHarmony!=null));
+
+                patchInstalado=installedAny;
+                Debug.Log(installedAny
+                    ? "[Observatorio] STATUS_PATCH_INSTALLED: preventivo de PowerTabController + finalizer de StatsWindow quando disponiveis."
+                    : "[Observatorio] STATUS_PATCH_NOT_INSTALLED: nenhum patch compatível foi aplicado.");
             }
             catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
+        }
+
+        private static MethodInfo EncontrarHarmonyPatch(MethodInfo[] methods)
+        {
+            for(int i=0;i<methods.Length;i++)
+            {
+                if(methods[i].Name!="Patch")continue;
+                ParameterInfo[] ps=methods[i].GetParameters();
+                if(ps.Length==5 && ps[0].ParameterType==typeof(MethodBase))return methods[i];
+            }
+            return null;
+        }
+
+        public static bool PrefixSelectedInfoWhenOpeningStatus(string __0, bool __1)
+        {
+            try
+            {
+                System.Diagnostics.StackTrace stack=new System.Diagnostics.StackTrace(1,false);
+                System.Diagnostics.StackFrame[] frames=stack.GetFrames();
+                bool chamadoPeloStatus=false;
+                if(frames!=null)
+                {
+                    for(int i=0;i<frames.Length;i++)
+                    {
+                        MethodBase m=frames[i].GetMethod();
+                        if(m==null)continue;
+                        string nomeTipo=m.DeclaringType==null?"":m.DeclaringType.FullName;
+                        if((nomeTipo=="StatsWindow" || nomeTipo.StartsWith("StatsWindow+",StringComparison.Ordinal) || nomeTipo.StartsWith("WindowMetaGeneric",StringComparison.Ordinal))
+                            && m.Name=="OnEnable")
+                        {
+                            chamadoPeloStatus=true;
+                            break;
+                        }
+                    }
+                }
+                if(!chamadoPeloStatus)return true;
+                Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_SKIP: chamada auxiliar "+(__0??"(null)")+" ignorada durante StatsWindow.OnEnable para evitar NullReference e permitir que a janela termine de inicializar.");
+                return false;
+            }
+            catch(Exception ex)
+            {
+                Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_CHECK_FAILED: "+ex.GetType().Name+"; deixando o método original seguir.");
+                return true;
+            }
         }
 
         private static object ConstruirHarmonyMethod(Type harmonyMethodType,MethodInfo method)
