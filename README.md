@@ -1,31 +1,29 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto original para construir uma interface de governo e diplomacia para WorldBox Android 0.51.4 + NeoModLoader.
+Projeto experimental de interface de governo e diplomacia para WorldBox Android 0.51.4 + NeoModLoader.
 
-## 0.6.0-dev — janela nativa experimental
+## 0.6.1-dev — diagnóstico visível do botão
 
-A interface foi reescrita para usar `AbstractWideWindow<T>` do NeoModLoader, que cria uma janela baseada no prefab nativo `windows/empty` e a registra no sistema de janelas. O botão `GOVERNO` é filho de `CanvasMain.instance.canvas_ui` e chama `ScrollWindow.showWindow("observatorio_dos_reinos")`.
+A interface principal usa `AbstractWideWindow<T>` do NeoModLoader e o registro de janela nativo. A revisão 0.6.1-dev separa a criação do botão `GOVERNO` da criação da janela: mesmo se a janela nativa falhar ao inicializar, o mod deve deixar o atalho visível para permitir diagnóstico. O botão recebe um Canvas próprio com `overrideSorting = true` e `sortingOrder = 32000`, e tenta exibir `GOVERNO !` quando a janela falha.
 
-A nova versão **não instala patches Harmony na janela nativa de status**. Isso devolve ao jogo o fluxo normal de abertura da janela, sem a interceptação de status que o mod anterior tentava fazer. Isso não garante que um bug originado no próprio jogo ou em outro mod tenha sido corrigido.
+O Observatório não instala patches Harmony em `StatsWindow` nem intercepta as rotinas da janela nativa de status. Portanto, remover a intervenção do mod não prova que a exceção original do status foi corrigida.
 
-A janela contém páginas de Governo, Diplomacia, Reuniões e RPG. Os botões de políticas e de propostas atualizam registros locais durante a sessão; eles **ainda não alteram os reinos, relações diplomáticas, guerras ou cidades reais**.
+As páginas Governo, Diplomacia, Reuniões e RPG guardam preferências/propostas localmente durante a sessão. Não alteram ainda os reinos, cidades, diplomacia ou guerras reais.
+
+## Download
+
+ZIP do código-fonte para o NeoModLoader: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
+
+O NeoModLoader compila os arquivos `.cs` no diretório do mod. O `.gitignore` exclui `tests/` para não incluir stubs de CI na compilação do mod. Faça backup da versão anterior antes de substituir os arquivos e mantenha `mod.json` na raiz da pasta do mod.
 
 ## Verificação
 
-O repositório contém testes de compilação contra stubs e testes de invariantes do modelo político local. Eles não validam a interface Unity em runtime. Não há ainda confirmação visual da janela no telefone nem uma DLL produzida aqui contra a instalação exata do jogo.
+O CI compila a fonte contra stubs e testa invariantes do modelo político. Isso não verifica UI no Unity em execução, não substitui a compilação contra as referências reais do WorldBox/NeoModLoader e não confirma que o botão aparece no aparelho.
 
-## Baixar e instalar como mod de código-fonte
+A aceitação real exige ver o botão no jogo, abrir a janela, navegar pelas abas e verificar separadamente o erro da janela de status.
 
-O ZIP desta branch contém o código-fonte, não uma DLL pré-compilada. O NeoModLoader compila os arquivos `.cs` da pasta do mod. O arquivo `.gitignore` exclui `tests/` da compilação dentro do jogo, pois essa pasta contém stubs exclusivos do CI.
+Guia fornecido na conversa: https://the-official-worldbox-wiki.fandom.com/wiki/Modding_Code_Examples
 
-Baixe a branch: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
-
-Extraia a pasta do projeto para o diretório de mods do NeoModLoader, da mesma forma que os demais mods de código-fonte que você já usa. Faça backup da pasta antiga antes de substituir.
-
-Guia de exemplos fornecido na conversa: https://the-official-worldbox-wiki.fandom.com/wiki/Modding_Code_Examples
-
-Referência adicional de janela nativa no código do NeoModLoader: https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/api/AbstractWindow.cs e https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/general/WindowCreator.cs
-
-## Critério de conclusão
-
-Não considere a mudança confirmada até compilar a versão com as referências reais do aparelho, instalá-la e observar no jogo: (1) o botão GOVERNO, (2) abertura/fechamento da janela nativa, (3) navegação nas quatro páginas e (4) abertura normal da janela de status sem patches do Observatório.
+Referências de janela nativa:
+- https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/api/AbstractWindow.cs
+- https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/general/WindowCreator.cs
