@@ -5,8 +5,7 @@ using NeoModLoader.api;
 namespace ObservatorioDosReinos
 {
     /// <summary>
-    /// Primeiro sistema de regras do Observatório. Mantém estado político próprio
-    /// do mod, separado da simulação original do WorldBox.
+    /// Estado politico local do mod. Nao edita objetos do WorldBox.
     /// </summary>
     public sealed class PoliticaDoReino
     {
@@ -38,7 +37,7 @@ namespace ObservatorioDosReinos
         public void AjustarTesouro(int variacao)
         {
             long novoValor = (long)Tesouro + variacao;
-            Tesouro = (int)Math.Max(0, Math.Min(1000000L, novoValor));
+            Tesouro = (int)Math.Max(0L, Math.Min(1000000L, novoValor));
         }
 
         private static int Limitar(int valor, int minimo, int maximo)
@@ -57,7 +56,7 @@ namespace ObservatorioDosReinos
     }
 
     /// <summary>
-    /// Relacao politica do mod entre dois IDs estaveis. Nao altera relacoes vanilla.
+    /// Relacao diplomatica do mod. IDs sao canonizados para evitar duplicatas A-B/B-A.
     /// </summary>
     public sealed class RelacaoDiplomatica
     {
@@ -72,12 +71,15 @@ namespace ObservatorioDosReinos
             if (string.IsNullOrEmpty(reinoB)) throw new ArgumentException("ReinoB precisa de um ID.");
             if (reinoA == reinoB) throw new ArgumentException("Um reino nao pode ter relacao consigo mesmo.");
 
-            ReinoA = reinoA;
-            ReinoB = string.CompareOrdinal(reinoA, reinoB) < 0 ? reinoB : reinoA;
-            if (string.CompareOrdinal(reinoA, reinoB) > 0)
+            if (string.CompareOrdinal(reinoA, reinoB) < 0)
+            {
+                ReinoA = reinoA;
+                ReinoB = reinoB;
+            }
+            else
             {
                 ReinoA = reinoB;
-                ReinoB = reinoA == reinoB ? reinoA : reinoA;
+                ReinoB = reinoA;
             }
 
             Tipo = TipoRelacaoDiplomatica.Neutra;
@@ -93,17 +95,14 @@ namespace ObservatorioDosReinos
 
         public void AjustarOpiniao(int variacao)
         {
-            Opiniao = Math.Max(-100, Math.Min(100, Opiniao + variacao));
+            Opiniao = (int)Math.Max(-100L, Math.Min(100L, (long)Opiniao + variacao));
         }
 
-        public string Chave
-        {
-            get { return ReinoA + "::" + ReinoB; }
-        }
+        public string Chave { get { return ReinoA + "::" + ReinoB; } }
     }
 
     /// <summary>
-    /// Repositorio central das regras politicas extras. Nao toca objetos do jogo.
+    /// Repositorio central de politica e diplomacia extras do mod.
     /// </summary>
     public sealed class EstadoPolitico
     {
