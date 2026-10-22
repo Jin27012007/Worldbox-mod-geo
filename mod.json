@@ -1,8 +1,8 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.4.0-dev",
-  "description": "Painel responsivo de administração em protótipo para WorldBox Android.",
+  "version": "0.4.1-dev",
+  "description": "Painel de administração em protótipo, aberto por padrão para teste em Android.",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
