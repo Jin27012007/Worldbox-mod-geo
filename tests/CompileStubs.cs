@@ -152,9 +152,16 @@ namespace UnityEngine
     namespace SceneManagement { public struct Scene { public bool IsValid() => true; } }
 }
 
+namespace UnityEngine.Events
+{
+    public delegate void UnityAction();
+    public delegate void UnityAction<T>(T argument);
+}
+
 namespace UnityEngine.UI
 {
     using UnityEngine;
+    using UnityEngine.Events;
     public class Graphic : Behaviour { public Color color { get; set; } public Material material { get; set; } }
     public class Image : Graphic
     {
@@ -197,8 +204,8 @@ namespace UnityEngine.UI
     }
     public class GraphicRaycaster : Behaviour { }
     public class Outline : Behaviour { public Color effectColor { get; set; } public Vector2 effectDistance { get; set; } }
-    public class ButtonClickedEvent { public void AddListener(Action callback) { } }
-    public class ToggleEvent { public void AddListener(Action<bool> callback) { } }
+    public class ButtonClickedEvent { public void AddListener(UnityAction callback) { } }
+    public class ToggleEvent { public void AddListener(UnityAction<bool> callback) { } }
 }
 
 
