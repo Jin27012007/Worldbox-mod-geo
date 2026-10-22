@@ -588,9 +588,11 @@ namespace ObservatorioDosReinos
 
                 MethodInfo prefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("PrefixSelectedInfoWhenOpeningStatus",BindingFlags.Public|BindingFlags.Static);
                 MethodInfo statusWindowPrefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowPrefix",BindingFlags.Public|BindingFlags.Static);
+                MethodInfo statusWindowPostfixMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowPostfix",BindingFlags.Public|BindingFlags.Static);
                 MethodInfo finalizerMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
                 object prefixHarmony=prefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,prefixMethod);
                 object statusWindowPrefixHarmony=statusWindowPrefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,statusWindowPrefixMethod);
+                object statusWindowPostfixHarmony=statusWindowPostfixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,statusWindowPostfixMethod);
                 object finalizerHarmony=finalizerMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,finalizerMethod);
                 bool installedAny=false;
 
@@ -633,6 +635,18 @@ namespace ObservatorioDosReinos
                     catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
                 }
                 else Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", prefix="+(statusWindowPrefixHarmony!=null));
+
+                if(statsOnEnable!=null && statusWindowPostfixHarmony!=null)
+                {
+                    try
+                    {
+                        patch.Invoke(harmony,new object[]{statsOnEnable,null,statusWindowPostfixHarmony,null,null});
+                        installedAny=true;
+                        Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX_INSTALLED: "+statsOnEnable);
+                    }
+                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
+                }
+                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", postfix="+(statusWindowPostfixHarmony!=null));
 
                 if(statsOnEnable!=null && finalizerHarmony!=null)
                 {
@@ -703,6 +717,12 @@ namespace ObservatorioDosReinos
             if(!abrindoStatus)return true;
             Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_SKIP: chamada auxiliar "+(__0??"(null)")+" ignorada dentro do escopo StatsWindow.OnEnable.");
             return false;
+        }
+
+        public static void StatsWindowPostfix()
+        {
+            abrindoStatus=false;
+            Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX: escopo de protecao limpo apos StatsWindow.OnEnable.");
         }
 
         private static string ListarAssinaturas(MethodInfo[] methods,string nome)
