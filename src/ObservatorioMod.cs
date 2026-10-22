@@ -692,61 +692,17 @@ namespace ObservatorioDosReinos
             return null;
         }
 
-        public static bool PrefixSelectedInfoWhenOpeningStatus(string __0, bool __1)
+        public static void StatsWindowPrefix()
         {
-            try
-            {
-                System.Diagnostics.StackTrace stack=new System.Diagnostics.StackTrace(1,false);
-                System.Diagnostics.StackFrame[] frames=stack.GetFrames();
-                bool chamadoPeloStatus=false;
-                if(frames!=null)
-                {
-                    for(int i=0;i<frames.Length;i++)
-                    {
-                        MethodBase m=frames[i].GetMethod();
-                        if(m==null)continue;
-                        string nomeTipo=m.DeclaringType==null?"":m.DeclaringType.FullName;
-                        if((nomeTipo=="StatsWindow" || nomeTipo.StartsWith("StatsWindow+",StringComparison.Ordinal) || nomeTipo.StartsWith("WindowMetaGeneric",StringComparison.Ordinal))
-                            && m.Name=="OnEnable")
-                        {
-                            chamadoPeloStatus=true;
-                            break;
-                        }
-                    }
-                }
-                if(!chamadoPeloStatus)return true;
-                Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_SKIP: chamada auxiliar "+(__0??"(null)")+" ignorada durante StatsWindow.OnEnable para evitar NullReference e permitir que a janela termine de inicializar.");
-                return false;
-            }
-            catch(Exception ex)
-            {
-                Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_CHECK_FAILED: "+ex.GetType().Name+"; deixando o método original seguir.");
-                return true;
-            }
+            abrindoStatus=true;
+            Debug.Log("[Observatorio] STATUS_WINDOW_OPENING: escopo de protecao ativado antes de StatsWindow.OnEnable.");
         }
 
-        private static object ConstruirHarmonyMethod(Type harmonyMethodType,MethodInfo method)
+        public static bool PrefixSelectedInfoWhenOpeningStatus(string __0, bool __1)
         {
-            try
-            {
-                ConstructorInfo[] cs=harmonyMethodType.GetConstructors(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
-                for(int i=0;i<cs.Length;i++)
-                {
-                    ParameterInfo[] ps=cs[i].GetParameters();
-                    if(ps.Length==1 && ps[0].ParameterType==typeof(MethodInfo))return cs[i].Invoke(new object[]{method});
-                }
-            }
-            catch(Exception ex){Debug.Log("[Observatorio] HarmonyMethod ctor probe: "+ex.GetType().Name);}
-            try
-            {
-                object hm=Activator.CreateInstance(harmonyMethodType,true);
-                FieldInfo f=harmonyMethodType.GetField("method",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
-                if(f!=null){f.SetValue(hm,method);return hm;}
-                PropertyInfo p=harmonyMethodType.GetProperty("method",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
-                if(p!=null && p.CanWrite){p.SetValue(hm,method,null);return hm;}
-            }
-            catch(Exception ex){Debug.Log("[Observatorio] HarmonyMethod fallback probe: "+ex.GetType().Name);}
-            return null;
+            if(!abrindoStatus)return true;
+            Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_SKIP: chamada auxiliar "+(__0??"(null)")+" ignorada dentro do escopo StatsWindow.OnEnable.");
+            return false;
         }
 
         private static string ListarAssinaturas(MethodInfo[] methods,string nome)
@@ -781,6 +737,9 @@ namespace ObservatorioDosReinos
 
         public static Exception StatsWindowFinalizer(Exception __exception, object __instance)
         {
+            // The finalizer runs on both success and exception; always clear the
+            // status scope so later ordinary selection calls are not suppressed.
+            abrindoStatus=false;
             if(__exception==null)return null;
             if(!(__exception is NullReferenceException))return __exception;
             string trace=__exception.StackTrace??"";
