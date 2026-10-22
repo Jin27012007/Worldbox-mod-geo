@@ -1,26 +1,30 @@
 # Status técnico
 
-## Ambiente-alvo informado
-- WorldBox: 0.51.4 (versão informada pelo usuário).
+## Ambiente informado
+- WorldBox: 0.51.4.
 - Plataforma: Android.
-- Loader: NeoModLoader; foi fornecido um arquivo chamado `NeoModLoader.dll`.
-- Assembleia pública do jogo: o ZIP `com.mkarpenko.worldbox.zip` foi informado como contendo `Assembly-CSharp-Publicized.dll` e `0Harmony.dll`.
+- NeoModLoader já funciona no aparelho do usuário; foi usado para executar o Worldfall.
+- Assembly pública do jogo, NeoModLoader e Harmony foram fornecidos para análise.
 
-## Confirmado nesta etapa
-- Repositório: `Jin27012007/Worldbox-mod-geo`, branch padrão `main`.
-- Foi criada a branch isolada `scaffold/observatorio-dos-reinos`.
-- Objetivo: mod Android-first com UI 2D e foco em geopolítica; iniciar com diagnóstico/leitura, sem modificar a simulação.
+## Progresso do projeto
+- Branch de trabalho: `scaffold/observatorio-dos-reinos`.
+- Manifesto atualizado para usar chaves documentadas do NML: `GUID`, `Dependencies`, `OptionalDependencies`, `IncompatibleWith` e `UsePublicizedAssembly`.
+- Entrada inicial implementada com `NeoModLoader.api.BasicMod<Main>` e `OnModLoad()`, baseada na documentação pública de NML.
+- A entrada apenas registra duas mensagens no log; não altera o mundo.
 
-## Ainda não confirmado
-- Interface de entrada exigida pela versão instalada do NeoModLoader.
-- Target .NET/Mono e referências necessárias para compilar no Android.
-- Compatibilidade exata entre loader e WorldBox 0.51.4.
-- APIs para ler reinos, cidades e governantes.
-- Nenhuma DLL foi compilada ou testada no jogo nesta etapa.
+## Pendências concretas
+- Compilar o fonte pelo próprio NML no dispositivo e obter log real.
+- Confirmar que a versão específica do loader fornece o mesmo namespace e a mesma assinatura `BasicMod<T>.OnModLoad()`.
+- Analisar os metadados de `Assembly-CSharp-Publicized.dll` para identificar os tipos reais envolvidos em reinos, cidades e governantes.
+- Implementar o painel 2D somente após o smoke test funcionar.
 
-## Regras
-1. Não inventar nomes de classes, métodos de ciclo de vida ou campos de configuração do loader.
-2. Confirmar assinaturas com metadados/reflection estática antes de implementá-las.
-3. Encapsular acesso ao jogo em adaptadores pequenos e defensivos.
-4. Não modificar guerras, relações, território ou sucessão antes de uma leitura estável.
-5. Erros de inicialização devem ir ao log e não interromper a simulação.
+## Não afirmar ainda
+- Nenhuma DLL deste projeto foi compilada ou testada no jogo nesta etapa.
+- Ainda não há integração de dados de reinos, diplomacia ou controle de personagens.
+
+## Regras de segurança/estabilidade
+1. Confirmar assinaturas antes de chamar APIs específicas do jogo.
+2. Manter o protótipo inicial somente de diagnóstico/leitura.
+3. Não alterar guerras, relações, território ou sucessão antes de haver leitura estável e testes.
+4. Não incluir DLLs do jogo ou do carregador na distribuição do mod.
+5. Tratar falha de inicialização sem tentar modificar o mundo.
