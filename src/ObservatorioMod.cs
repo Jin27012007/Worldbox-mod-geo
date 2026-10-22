@@ -99,6 +99,11 @@ namespace ObservatorioDosReinos
         private bool patchInstalado;
         private Sprite spriteJanela;
         private Font fonte;
+        private Text textoDiagnostico;
+        private Rect lastSafeArea;
+        private int diagnosticoFrames;
+        private bool tentouAvisarFalha;
+
 
         public static void CriarSeNecessario()
         {
@@ -136,6 +141,14 @@ namespace ObservatorioDosReinos
         {
             frames++;
             if (frames % 25 == 0) TentarInserirBotaoNativo();
+            if (frames % 45 == 0)
+            {
+                string safe = Screen.safeArea.width.ToString("0") + "x" + Screen.safeArea.height.ToString("0");
+                if (textoDiagnostico != null)
+                    textoDiagnostico.text = "OBSERVATORIO 0.5.1-dev | tela " + Screen.width + "x" + Screen.height
+                        + " | area segura " + safe + " | Canvas ativo=" + (canvas != null && canvas.gameObject.activeInHierarchy)
+                        + " | botao nativo=" + (botaoNativoClonado != null);
+            }
         }
 
         private void ConstruirCanvas()
@@ -149,10 +162,11 @@ namespace ObservatorioDosReinos
             scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution=new Vector2(720f,1280f);
             scaler.matchWidthOrHeight=0.5f;
+            go.AddComponent<CanvasSafeAreaLayout>();
 
             GameObject fallback=NovoUI("Atalho reserva Governo",go.transform,typeof(Image),typeof(Button));
             RectTransform fr=fallback.GetComponent<RectTransform>();
-            fr.anchorMin=new Vector2(0.02f,0.91f); fr.anchorMax=new Vector2(0.29f,0.97f);
+            fr.anchorMin=new Vector2(0.02f,0.87f); fr.anchorMax=new Vector2(0.32f,0.93f);
             fr.offsetMin=Vector2.zero; fr.offsetMax=Vector2.zero;
             Image fi=fallback.GetComponent<Image>(); fi.color=new Color(0.23f,0.25f,0.21f,0.98f);
             Button fb=fallback.GetComponent<Button>(); fb.targetGraphic=fi; fb.onClick.AddListener(delegate { Abrir(); });
@@ -160,9 +174,17 @@ namespace ObservatorioDosReinos
             TextoFilho(fallback.transform,"GOVERNO",15,FontStyle.Bold,new Color(1f,0.72f,0.28f));
             faixaAlternativa=fallback;
 
+            GameObject diag=NovoUI("Diagnostico visivel",go.transform,typeof(Image));
+            RectTransform dr=diag.GetComponent<RectTransform>();
+            dr.anchorMin=new Vector2(0.02f,0.80f);dr.anchorMax=new Vector2(0.98f,0.86f);
+            dr.offsetMin=Vector2.zero;dr.offsetMax=Vector2.zero;
+            diag.GetComponent<Image>().color=new Color(0.12f,0.13f,0.11f,0.96f);
+            textoDiagnostico=TextoFilho(diag.transform,"Observatorio carregado: inicializando interface...",12,FontStyle.Bold,new Color(1f,0.76f,0.30f));
+            textoDiagnostico.alignment=TextAnchor.MiddleLeft;
+
             GameObject p=NovoUI("Painel de administracao",go.transform,typeof(Image));
             painel=p.GetComponent<RectTransform>();
-            painel.anchorMin=new Vector2(0.045f,0.075f); painel.anchorMax=new Vector2(0.955f,0.925f);
+            painel.anchorMin=new Vector2(0.045f,0.045f); painel.anchorMax=new Vector2(0.955f,0.955f);
             painel.offsetMin=Vector2.zero; painel.offsetMax=Vector2.zero; painel.pivot=new Vector2(0.5f,0.5f);
             Image pi=p.GetComponent<Image>(); pi.color=new Color(0.24f,0.26f,0.22f,0.99f);
             if(spriteJanela!=null){pi.sprite=spriteJanela;pi.type=spriteJanela.border.sqrMagnitude>0.01f?Image.Type.Sliced:Image.Type.Simple;pi.preserveAspect=false;}
@@ -347,6 +369,24 @@ namespace ObservatorioDosReinos
             Outline outline=go.AddComponent<Outline>();outline.effectColor=new Color(0.68f,0.47f,0.20f,0.95f);outline.effectDistance=new Vector2(2f,-2f);
         }
 
+        private sealed class CanvasSafeAreaLayout : MonoBehaviour
+        {
+            private RectTransform rect;
+            private Rect ultima;
+            private void Awake(){rect=transform as RectTransform;Aplicar();}
+            private void Update(){if(rect==null)rect=transform as RectTransform;if(Screen.safeArea!=ultima)Aplicar();}
+            private void Aplicar()
+            {
+                if(rect==null)return;
+                ultima=Screen.safeArea;
+                Vector2 min=ultima.position;
+                Vector2 max=ultima.position+ultima.size;
+                min.x/=Mathf.Max(1f,Screen.width);min.y/=Mathf.Max(1f,Screen.height);
+                max.x/=Mathf.Max(1f,Screen.width);max.y/=Mathf.Max(1f,Screen.height);
+                rect.anchorMin=min;rect.anchorMax=max;rect.offsetMin=Vector2.zero;rect.offsetMax=Vector2.zero;
+            }
+        }
+
         private static Sprite BuscarSpriteJanela()
         {
             try
@@ -508,8 +548,10 @@ namespace ObservatorioDosReinos
             {
                 Component c=__instance as Component;
                 if(c!=null&&c.gameObject!=null)c.gameObject.SetActive(false);
-                Debug.LogWarning("[Observatorio] Interceptado NullReference na UI nativa de status. A janela incompleta foi fechada e o painel de governo foi aberto como alternativa.");
+                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo. Stack="+trace.Replace("\\n"," | "));
                 Abrir();
+                if(instancia!=null && instancia.textoEstado!=null)
+                    instancia.textoEstado.text="A janela nativa falhou ao abrir. O Observatorio interceptou essa falha e exibiu o painel alternativo.";
                 return null;
             }
             catch(Exception ex){Debug.LogWarning("[Observatorio] Fallback visual falhou: "+ex.GetType().Name);return __exception;}
@@ -517,7 +559,9 @@ namespace ObservatorioDosReinos
 
         private void Start()
         {
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(true);
+            if(faixaAlternativa!=null)faixaAlternativa.SetActive(botaoNativoClonado==null);
+            if(textoDiagnostico!=null)textoDiagnostico.text="OBSERVATORIO 0.5.1-dev | UI iniciada. Procure o botao GOV ou o atalho GOVERNO.";
+            Debug.Log("[Observatorio] Canvas, botao reserva e painel admin prontos. Screen="+Screen.width+"x"+Screen.height+" safeArea="+Screen.safeArea);
         }
 
         private void OnDestroy(){if(instancia==this)instancia=null;}
