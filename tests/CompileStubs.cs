@@ -32,7 +32,8 @@ namespace UnityEngine
     public class MonoBehaviour : Behaviour { }
     public class GameObject : Object
     {
-        public GameObject(string name, params Type[] components) { }
+        public GameObject(string name, params Type[] components) { this.name = name; }
+        public string name { get; set; }
         public Transform transform { get; } = new RectTransform();
         public bool activeInHierarchy { get; set; }
         public SceneManagement.Scene scene { get; } = new SceneManagement.Scene();
@@ -90,7 +91,7 @@ namespace UnityEngine
         public static Vector3 operator +(Vector3 a,Vector3 b) => new Vector3(a.x+b.x,a.y+b.y,a.z+b.z);
     }
     public struct Vector4 { public float x,y,z,w; public float sqrMagnitude => x*x+y*y+z*z+w*w; }
-    public struct Quaternion { }
+    public struct Quaternion { public static Quaternion identity => new Quaternion(); }
     public struct Rect
     {
         public float x,y,width,height;
