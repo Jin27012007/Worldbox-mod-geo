@@ -1,8 +1,8 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.5.2-dev",
-  "description": "UI Canvas com diagnóstico de carregamento e recuperação direcionada do status nativo.",
+  "version": "0.5.3-dev",
+  "description": "Diagnóstico Harmony detalhado e recuperação direcionada do status nativo.",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
