@@ -3,12 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using NeoModLoader.api;
+using UnityEngine;
 
 namespace ObservatorioDosReinos
 {
     /// <summary>
-    /// Diagnostic that reads only metadata and live entity collections.
-    /// It never invokes game-changing methods.
+    /// Sonda somente leitura para descobrir APIs sem assumir que todas as versões
+    /// do WorldBox expõem os mesmos membros.
     /// </summary>
     internal static class LeitorSeguroDoMundo
     {
@@ -119,11 +120,9 @@ namespace ObservatorioDosReinos
                 FieldInfo[] campos = atual.GetFields(Membros | BindingFlags.DeclaredOnly);
                 for (int i = 0; i < campos.Length; i++)
                     if (Combina(campos[i].Name, pistas)) encontrados.Add("F:" + campos[i].Name);
-
                 PropertyInfo[] propriedades = atual.GetProperties(Membros | BindingFlags.DeclaredOnly);
                 for (int i = 0; i < propriedades.Length; i++)
                     if (Combina(propriedades[i].Name, pistas)) encontrados.Add("P:" + propriedades[i].Name);
-
                 MethodInfo[] metodos = atual.GetMethods(Membros | BindingFlags.DeclaredOnly);
                 for (int i = 0; i < metodos.Length; i++)
                     if (Combina(metodos[i].Name, pistas)) encontrados.Add("M:" + metodos[i].Name);
@@ -161,6 +160,194 @@ namespace ObservatorioDosReinos
         }
     }
 
+    /// <summary>Protótipo visual responsivo. Os botões de política ainda são demonstrativos.</summary>
+    public sealed class MenuAdministracaoOverlay : MonoBehaviour
+    {
+        private const int IdJanela = 490271;
+        private static MenuAdministracaoOverlay instancia;
+        private bool aberto;
+        private int aba;
+        private Rect janela;
+        private Vector2 rolagem;
+        private string nomePolitica = "Protecao das aldeias";
+        private string textoReuniao = "Convocar conselho real para discutir as necessidades do reino.";
+        private string textoDiplomacia = "Propor um tratado de paz e comercio.";
+        private string textoEvento = "Um emissario chega ao castelo com noticias da fronteira.";
+        private string retorno = "Protótipo visual: ações ainda não alteram o mundo.";
+        private bool leiProtecao = true;
+        private bool leiComercio;
+        private bool leiRecrutamento;
+        private GUIStyle titulo;
+        private GUIStyle secao;
+        private GUIStyle texto;
+        private GUIStyle botao;
+        private GUIStyle campo;
+        private GUIStyle pequeno;
+
+        public static void CriarSeNecessario()
+        {
+            if (instancia != null) return;
+            MenuAdministracaoOverlay existente = FindObjectOfType<MenuAdministracaoOverlay>();
+            if (existente != null) { instancia = existente; return; }
+            GameObject objeto = new GameObject("ObservatorioDosReinos_MenuAdmin");
+            DontDestroyOnLoad(objeto);
+            instancia = objeto.AddComponent<MenuAdministracaoOverlay>();
+        }
+
+        private void OnGUI()
+        {
+            try
+            {
+                PrepararEstilos();
+                float margem = Mathf.Clamp(Screen.width * 0.02f, 8f, 18f);
+                float larguraAtalho = Mathf.Clamp(Screen.width * 0.22f, 112f, 184f);
+                float alturaAtalho = Mathf.Clamp(Screen.height * 0.045f, 34f, 48f);
+                GUI.color = new Color(1f, 1f, 1f, 0.98f);
+                if (GUI.Button(new Rect(margem, margem, larguraAtalho, alturaAtalho),
+                    aberto ? "Fechar governo" : "Governo", botao))
+                    aberto = !aberto;
+
+                if (aberto)
+                {
+                    float largura = Mathf.Clamp(Screen.width - margem * 2f, 270f, 620f);
+                    largura = Mathf.Min(largura, Screen.width - margem * 2f);
+                    float altura = Mathf.Clamp(Screen.height * 0.72f, 300f, 660f);
+                    altura = Mathf.Min(altura, Screen.height - margem * 2f);
+                    float x = (Screen.width - largura) * 0.5f;
+                    float y = Mathf.Max(margem, (Screen.height - altura) * 0.5f);
+                    janela = new Rect(x, y, largura, altura);
+                    janela = GUI.Window(IdJanela, janela, DesenharJanela, "OBSERVATÓRIO DOS REINOS");
+                }
+                GUI.color = Color.white;
+            }
+            catch (Exception ex)
+            {
+                GUI.color = Color.white;
+                Debug.LogWarning("[ObservatorioDosReinos] UI segura interrompida: " + ex.GetType().Name);
+            }
+        }
+
+        private void PrepararEstilos()
+        {
+            if (titulo != null) return;
+            int fonte = Mathf.Clamp(Screen.width / 38, 12, 20);
+            titulo = new GUIStyle(GUI.skin.label);
+            titulo.fontSize = fonte + 2;
+            titulo.fontStyle = FontStyle.Bold;
+            titulo.normal.textColor = new Color(1f, 0.68f, 0.24f);
+            titulo.wordWrap = true;
+
+            secao = new GUIStyle(GUI.skin.label);
+            secao.fontSize = fonte;
+            secao.fontStyle = FontStyle.Bold;
+            secao.normal.textColor = new Color(1f, 0.72f, 0.34f);
+            secao.wordWrap = true;
+
+            texto = new GUIStyle(GUI.skin.label);
+            texto.fontSize = fonte;
+            texto.normal.textColor = new Color(0.93f, 0.92f, 0.82f);
+            texto.wordWrap = true;
+
+            botao = new GUIStyle(GUI.skin.button);
+            botao.fontSize = fonte;
+            botao.wordWrap = true;
+            botao.fixedHeight = Mathf.Clamp(fonte * 2.8f, 34f, 54f);
+            botao.normal.textColor = Color.white;
+
+            campo = new GUIStyle(GUI.skin.textField);
+            campo.fontSize = fonte;
+            campo.fixedHeight = Mathf.Clamp(fonte * 2.5f, 30f, 46f);
+
+            pequeno = new GUIStyle(texto);
+            pequeno.fontSize = Mathf.Max(10, fonte - 2);
+        }
+
+        private void DesenharJanela(int id)
+        {
+            GUILayout.BeginVertical();
+            GUILayout.Label("Painel de administração • protótipo", titulo);
+            GUILayout.Label("Personagem/reino: aguardando ligação à API real do WorldBox.", pequeno);
+            GUILayout.Space(4);
+
+            GUILayout.BeginHorizontal();
+            string[] abas = { "Governo", "Diplomacia", "Reuniões", "RPG" };
+            for (int i = 0; i < abas.Length; i++)
+                if (GUILayout.Button(abas[i], botao)) aba = i;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8);
+
+            rolagem = GUILayout.BeginScrollView(rolagem, GUILayout.Height(Mathf.Max(110f, janela.height - 150f)));
+            if (aba == 0) DesenharGoverno();
+            else if (aba == 1) DesenharDiplomacia();
+            else if (aba == 2) DesenharReunioes();
+            else DesenharRpg();
+            GUILayout.EndScrollView();
+
+            GUILayout.Space(5);
+            GUILayout.Label(retorno, pequeno);
+            GUILayout.EndVertical();
+            GUI.DragWindow(new Rect(0, 0, 10000, 26));
+        }
+
+        private void DesenharGoverno()
+        {
+            GUILayout.Label("POLÍTICAS DO REINO", secao);
+            GUILayout.Label("Nome da proposta", texto);
+            nomePolitica = GUILayout.TextField(nomePolitica, campo);
+            leiProtecao = GUILayout.Toggle(leiProtecao, "Proteger aldeias e civis");
+            leiComercio = GUILayout.Toggle(leiComercio, "Incentivar o comércio");
+            leiRecrutamento = GUILayout.Toggle(leiRecrutamento, "Expandir o recrutamento");
+            if (GUILayout.Button("Preparar proposta de lei", botao))
+                retorno = "Rascunho local guardado na sessão: " + nomePolitica + ". Ainda não altera o reino.";
+            GUILayout.Space(8);
+            GUILayout.Label("ADMINISTRAÇÃO", secao);
+            GUILayout.Label("Os campos e opções acima são protótipos de interface; ainda não aplicam efeitos ao jogo.", texto);
+        }
+
+        private void DesenharDiplomacia()
+        {
+            GUILayout.Label("DIPLOMACIA ENTRE REINOS", secao);
+            GUILayout.Label("Texto da proposta", texto);
+            textoDiplomacia = GUILayout.TextArea(textoDiplomacia, campo, GUILayout.MinHeight(70f));
+            if (GUILayout.Button("Preparar tratado", botao))
+                retorno = "Proposta diplomática preparada como rascunho. Nenhum reino foi alterado.";
+            if (GUILayout.Button("Solicitar reunião", botao))
+                retorno = "Pedido de reunião registrado apenas nesta sessão de interface.";
+            if (GUILayout.Button("Declarar guerra (bloqueado)", botao))
+                retorno = "Ação bloqueada: integração diplomática nativa ainda não validada.";
+        }
+
+        private void DesenharReunioes()
+        {
+            GUILayout.Label("REUNIÕES E VILAS", secao);
+            GUILayout.Label("Assunto da reunião", texto);
+            textoReuniao = GUILayout.TextArea(textoReuniao, campo, GUILayout.MinHeight(70f));
+            if (GUILayout.Button("Preparar reunião do conselho", botao))
+                retorno = "Pauta preparada localmente. Ainda não convocou personagens reais.";
+            if (GUILayout.Button("Contatar uma vila (visual)", botao))
+                retorno = "Interface de contato preparada; falta ligar ao sistema real de cidades.";
+            GUILayout.Label("Etapa futura: escolher cidade, representante e resultado da reunião.", pequeno);
+        }
+
+        private void DesenharRpg()
+        {
+            GUILayout.Label("EVENTOS E INTERAÇÕES DE RPG", secao);
+            GUILayout.Label("Descrição do evento", texto);
+            textoEvento = GUILayout.TextArea(textoEvento, campo, GUILayout.MinHeight(70f));
+            if (GUILayout.Button("Criar rascunho de evento", botao))
+                retorno = "Rascunho narrativo criado nesta sessão; sem consequência na simulação.";
+            if (GUILayout.Button("Escolha: negociar", botao))
+                retorno = "Escolha de exemplo selecionada. A consequência ainda não está conectada.";
+            if (GUILayout.Button("Escolha: recusar", botao))
+                retorno = "Escolha de exemplo selecionada. A consequência ainda não está conectada.";
+        }
+
+        private void OnDestroy()
+        {
+            if (instancia == this) instancia = null;
+        }
+    }
+
     public sealed class PoliticaDoReino
     {
         public string Id { get; private set; }
@@ -168,7 +355,6 @@ namespace ObservatorioDosReinos
         public int Estabilidade { get; private set; }
         public int Legitimidade { get; private set; }
         public int Tesouro { get; private set; }
-
         public PoliticaDoReino(string id, string nome)
         {
             Id = string.IsNullOrEmpty(id) ? Guid.NewGuid().ToString("N") : id;
