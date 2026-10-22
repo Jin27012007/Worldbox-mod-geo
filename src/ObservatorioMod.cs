@@ -457,7 +457,7 @@ namespace ObservatorioDosReinos
             string[] tipos={"SelectedPowerTabButtons","SelectedPowerTabTopButtons"};
             for(int t=0;t<tipos.Length;t++)
             {
-                Type tipo=Type.GetType(tipos[t]+", Assembly-CSharp");if(tipo==null)continue;
+                Type tipo=BuscarTipoCarregado(tipos[t],tipos[t]+", Assembly-CSharp");if(tipo==null)continue;
                 UnityEngine.Object[] objetos=Resources.FindObjectsOfTypeAll(tipo);
                 for(int i=0;i<objetos.Length;i++)
                 {
@@ -554,24 +554,28 @@ namespace ObservatorioDosReinos
             {
                 Type harmonyType=Type.GetType("HarmonyLib.Harmony, 0Harmony");
                 Type harmonyMethodType=Type.GetType("HarmonyLib.HarmonyMethod, 0Harmony");
-                Type statsType=Type.GetType("StatsWindow, Assembly-CSharp");
-                Type powerType=Type.GetType("PowerTabController, Assembly-CSharp");
-                if(harmonyType==null||harmonyMethodType==null||statsType==null)
+                Type statsType=BuscarTipoCarregado("StatsWindow", "StatsWindow, Assembly-CSharp");
+                Type powerType=BuscarTipoCarregado("PowerTabController", "PowerTabController, Assembly-CSharp");
+                if(harmonyType==null||harmonyMethodType==null)
                 {
-                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: referencias ausentes. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null)+", PowerTabController="+(powerType!=null));
+                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: Harmony ausente. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null)+", PowerTabController="+(powerType!=null));
                     return;
                 }
 
-                MethodInfo[] statsMethods=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
-                List<string> onEnableCandidates=new List<string>();
                 MethodInfo statsOnEnable=null;
-                for(int i=0;i<statsMethods.Length;i++)
+                if(statsType!=null)
                 {
-                    if(statsMethods[i].Name!="OnEnable")continue;
-                    onEnableCandidates.Add(statsMethods[i].ToString());
-                    if(statsMethods[i].GetParameters().Length==0)statsOnEnable=statsMethods[i];
+                    MethodInfo[] statsMethods=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
+                    List<string> onEnableCandidates=new List<string>();
+                    for(int i=0;i<statsMethods.Length;i++)
+                    {
+                        if(statsMethods[i].Name!="OnEnable")continue;
+                        onEnableCandidates.Add(statsMethods[i].ToString());
+                        if(statsMethods[i].GetParameters().Length==0)statsOnEnable=statsMethods[i];
+                    }
+                    Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",onEnableCandidates.ToArray()));
                 }
-                Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",onEnableCandidates.ToArray()));
+                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_TYPE_NOT_FOUND: tentando instalar apenas prefix de PowerTabController.");
 
                 ConstructorInfo harmonyCtor=harmonyType.GetConstructor(new Type[]{typeof(string)});
                 if(harmonyCtor==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: construtor Harmony(string) ausente.");return;}
@@ -632,6 +636,23 @@ namespace ObservatorioDosReinos
                     : "[Observatorio] STATUS_PATCH_NOT_INSTALLED: nenhum patch compatível foi aplicado.");
             }
             catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
+        }
+
+        private static Type BuscarTipoCarregado(string nomeTipo, string nomeQualificado)
+        {
+            Type tipo=Type.GetType(nomeQualificado);
+            if(tipo!=null)return tipo;
+            try
+            {
+                System.Reflection.Assembly[] assemblies=AppDomain.CurrentDomain.GetAssemblies();
+                for(int i=0;i<assemblies.Length;i++)
+                {
+                    tipo=assemblies[i].GetType(nomeTipo,false);
+                    if(tipo!=null)return tipo;
+                }
+            }
+            catch(Exception ex){Debug.Log("[Observatorio] Tipo "+nomeTipo+" nao localizado por varredura: "+ex.GetType().Name);}
+            return null;
         }
 
         private static MethodInfo EncontrarHarmonyPatch(MethodInfo[] methods)
@@ -709,6 +730,29 @@ namespace ObservatorioDosReinos
             return string.Join(" || ",assinaturas.ToArray());
         }
 
+        private static string FecharJanelaStatusIncompleta(object instance)
+        {
+            Component componente=instance as Component;
+            if(componente==null || componente.gameObject==null)return "instancia StatsWindow indisponivel";
+            Type tipoScroll=BuscarTipoCarregado("ScrollWindow","ScrollWindow, Assembly-CSharp");
+            Transform cursor=componente.transform;
+            while(cursor!=null)
+            {
+                if(cursor.gameObject!=null && tipoScroll!=null)
+                {
+                    Component scroll=cursor.gameObject.GetComponent(tipoScroll);
+                    if(scroll!=null)
+                    {
+                        cursor.gameObject.SetActive(false);
+                        return "ScrollWindow externo fechado";
+                    }
+                }
+                cursor=cursor.parent;
+            }
+            componente.gameObject.SetActive(false);
+            return "componente StatsWindow fechado (nenhum ScrollWindow pai localizado)";
+        }
+
         public static Exception StatsWindowFinalizer(Exception __exception, object __instance)
         {
             if(__exception==null)return null;
@@ -718,15 +762,14 @@ namespace ObservatorioDosReinos
                trace.IndexOf("showWorldTipSelected",StringComparison.OrdinalIgnoreCase)<0)return __exception;
             try
             {
-                Component c=__instance as Component;
-                if(c!=null&&c.gameObject!=null)c.gameObject.SetActive(false);
-                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo. Stack="+trace.Replace("\r"," ").Replace("\n"," | "));
+                string fechamento=FecharJanelaStatusIncompleta(__instance);
+                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo; "+fechamento+". Stack="+trace.Replace("\r"," ").Replace("\n"," | "));
                 Abrir();
                 if(instancia!=null && instancia.textoEstado!=null)
-                    instancia.textoEstado.text="A janela nativa falhou ao abrir. O Observatorio interceptou essa falha e exibiu o painel alternativo.";
+                    instancia.textoEstado.text="A janela nativa falhou ao inicializar. A janela incompleta foi fechada e o painel alternativo foi aberto.";
                 return null;
             }
-            catch(Exception ex){Debug.LogWarning("[Observatorio] Fallback visual falhou: "+ex.GetType().Name);return __exception;}
+            catch(Exception ex){Debug.LogWarning("[Observatorio] Fallback visual falhou: "+ex.GetType().Name+": "+ex.Message);return __exception;}
         }
 
         private void Start()
