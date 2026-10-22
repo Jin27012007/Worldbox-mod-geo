@@ -390,130 +390,340 @@ namespace ObservatorioDosReinos
     }
 
     /// <summary>Atalho no Canvas de interface do jogo; a janela em si é um ScrollWindow nativo.</summary>
-    /// <summary>Atalho de alto contraste em canvas de ordenação própria.</summary>
-    internal static class ObservatorioAtalhoGov
+    /// <summary>
+    /// Insere o botão de governo no grupo de controles da interface que mostra a seleção/posse de NPCs.
+    /// Não cria um botão genérico no canto da tela e não altera a janela de status do jogo.
+    /// </summary>
+    internal static class ObservatorioBotaoPainelNPC
     {
-        private static GameObject botaoRaiz;
-        private static string ultimoDiagnostico;
-
-        internal static bool TentarCriar()
+        private const string IdBotao = "Observatorio_Botao_Governo_NPC";
+        private const int IntervaloBusca = 20;
+        private sealed class Registro
         {
-            if (botaoRaiz != null) return true;
+            public GameObject Botao;
+            public GameObject Pai;
+        }
 
-            CanvasMain canvasMain = CanvasMain.instance;
-            if (canvasMain == null)
-                return Falhar("CANVAS_MAIN_NULL: CanvasMain.instance ainda não existe.");
-            if (canvasMain.canvas_ui == null)
-                return Falhar("CANVAS_UI_NULL: CanvasMain.canvas_ui ainda não existe.");
-            if (!canvasMain.canvas_ui.activeInHierarchy)
-                return Falhar("CANVAS_UI_INACTIVE: CanvasMain.canvas_ui existe, mas está inativo.");
+        private static readonly List<Registro> registros = new List<Registro>();
+        private static int quadros;
+        private static bool selecaoAtiva;
+        private static string ultimoAviso;
+        private static bool componenteEncontrado;
 
-            GameObject anterior = canvasMain.canvas_ui.transform.Find("ObservatorioDosReinos_BotaoGoverno") != null
-                ? canvasMain.canvas_ui.transform.Find("ObservatorioDosReinos_BotaoGoverno").gameObject : null;
-            if (anterior != null)
+        internal static void Atualizar()
+        {
+            quadros++;
+
+            if (quadros % 5 == 0)
             {
-                botaoRaiz = anterior;
-                RegistrarEstado("BOTAO_GOVERNO_EXISTENTE: encontrei um botão criado por outra tentativa.");
+                selecaoAtiva = ExisteSelecaoControlavel();
+                AtualizarVisibilidade();
+            }
+
+            if (quadros % IntervaloBusca == 0)
+            {
+                ProcurarPainel();
+            }
+        }
+
+        private static void AtualizarVisibilidade()
+        {
+            for (int i = registros.Count - 1; i >= 0; i--)
+            {
+                Registro item = registros[i];
+                if (item == null || item.Botao == null || item.Pai == null)
+                {
+                    registros.RemoveAt(i);
+                    continue;
+                }
+
+                bool visivel = selecaoAtiva && item.Pai.activeInHierarchy;
+                item.Botao.SetActive(visivel);
+            }
+        }
+
+        private static bool ExisteSelecaoControlavel()
+        {
+            // Usa a mesma condição geral do painel nativo de seleção do jogo.
+            // Reflexão evita acoplar a compilação a uma variação de nomes da classe de seleção.
+            bool unidade = LerFlagEstatica("SelectedUnit", "isSet");
+            if (unidade) return true;
+            return LerFlagEstatica("SelectedObjects", "isNanoObjectSet");
+        }
+
+        private static bool LerFlagEstatica(string nomeTipo, string nomeMetodo)
+        {
+            try
+            {
+                Type tipo = ResolverTipo(nomeTipo);
+                if (tipo == null) return false;
+
+                MethodInfo metodo = tipo.GetMethod(
+                    nomeMetodo,
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    Type.EmptyTypes,
+                    null);
+                if (metodo == null) return false;
+
+                object valor = metodo.Invoke(null, null);
+                return valor is bool && (bool)valor;
+            }
+            catch (Exception ex)
+            {
+                RegistrarAviso("SELECAO_REFLECTION_FALHOU: " + nomeTipo + "." + nomeMetodo + " | " + ex.GetType().Name);
+                return false;
+            }
+        }
+
+        private static Type ResolverTipo(string nomeTipo)
+        {
+            Type tipo = Type.GetType(nomeTipo + ", Assembly-CSharp");
+            if (tipo != null) return tipo;
+
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int i = 0; i < assemblies.Length; i++)
+            {
+                try
+                {
+                    tipo = assemblies[i].GetType(nomeTipo, false);
+                    if (tipo != null) return tipo;
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private static void ProcurarPainel()
+        {
+            string[] candidatos = { "SelectedPowerTabButtons", "SelectedPowerTabTopButtons" };
+            bool encontrouAlvo = false;
+
+            for (int t = 0; t < candidatos.Length; t++)
+            {
+                Type tipo = ResolverTipo(candidatos[t]);
+                if (tipo == null) continue;
+
+                UnityEngine.Object[] objetos;
+                try { objetos = Resources.FindObjectsOfTypeAll(tipo); }
+                catch (Exception ex)
+                {
+                    RegistrarAviso("PAINEL_NPC_BUSCA_FALHOU: " + ex.GetType().Name);
+                    continue;
+                }
+
+                for (int i = 0; i < objetos.Length; i++)
+                {
+                    Component componente = objetos[i] as Component;
+                    if (componente == null || componente.gameObject == null) continue;
+                    try { if (!componente.gameObject.scene.IsValid()) continue; }
+                    catch { continue; }
+
+                    GameObject botaoReferencia;
+                    string campo;
+                    if (!LocalizarBotaoReferencia(componente, tipo, out botaoReferencia, out campo))
+                        continue;
+
+                    encontrouAlvo = true;
+                    if (InserirBotao(componente, botaoReferencia, campo))
+                        componenteEncontrado = true;
+                }
+            }
+
+            if (encontrouAlvo)
+            {
+                if (!componenteEncontrado)
+                    RegistrarAviso("PAINEL_NPC_ENCONTRADO_MAS_BOTAO_NAO_INSERIDO");
+            }
+            else
+            {
+                RegistrarAviso("PAINEL_NPC_AGUARDANDO: SelectedPowerTabButtons/SelectedPowerTabTopButtons ainda não encontrado na cena.");
+            }
+        }
+
+        private static bool LocalizarBotaoReferencia(Component componente, Type tipo, out GameObject referencia, out string nomeCampo)
+        {
+            referencia = null;
+            nomeCampo = null;
+            string[] prioritarios = {
+                "possession", "possess", "spectate", "open_window", "openwindow", "open_main", "openmain", "main_info", "button_info"
+            };
+
+            for (int p = 0; p < prioritarios.Length; p++)
+            {
+                for (Type atual = tipo; atual != null; atual = atual.BaseType)
+                {
+                    FieldInfo[] campos = atual.GetFields(
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                    for (int i = 0; i < campos.Length; i++)
+                    {
+                        if (campos[i].Name.IndexOf(prioritarios[p], StringComparison.OrdinalIgnoreCase) < 0)
+                            continue;
+
+                        GameObject go = ConverterParaGameObject(campos[i].GetValue(componente));
+                        if (go == null || go == componente.gameObject) continue;
+                        referencia = go;
+                        nomeCampo = campos[i].Name;
+                        return true;
+                    }
+                }
+            }
+
+            // Fallback para revisões do jogo que renomeiem os campos serializados.
+            Button[] botoes = componente.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < botoes.Length; i++)
+            {
+                if (botoes[i] == null || botoes[i].gameObject == null) continue;
+                string nome = botoes[i].gameObject.name.ToLowerInvariant();
+                if (nome.Contains("possession") || nome.Contains("possess") ||
+                    nome.Contains("spectate") || nome.Contains("open_window") ||
+                    nome.Contains("open_main") || nome.Contains("info"))
+                {
+                    referencia = botoes[i].gameObject;
+                    nomeCampo = "child:" + botoes[i].gameObject.name;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static GameObject ConverterParaGameObject(object valor)
+        {
+            GameObject go = valor as GameObject;
+            if (go != null) return go;
+            Component componente = valor as Component;
+            return componente == null ? null : componente.gameObject;
+        }
+
+        private static bool InserirBotao(Component painel, GameObject referencia, string nomeCampo)
+        {
+            Transform pai = referencia.transform.parent;
+            if (pai == null) return false;
+
+            Transform existente = pai.Find(IdBotao);
+            if (existente != null)
+            {
+                RegistrarRegistro(existente.gameObject, pai.gameObject);
                 return true;
             }
 
-            GameObject novo = null;
             try
             {
-                novo = new GameObject("ObservatorioDosReinos_BotaoGoverno",
-                    typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(Image), typeof(Button));
-                novo.transform.SetParent(canvasMain.canvas_ui.transform, false);
+                RectTransform modelo = referencia.GetComponent<RectTransform>();
+                float largura = modelo == null ? 54f : modelo.rect.width;
+                float altura = modelo == null ? 38f : modelo.rect.height;
+                if (largura < 24f) largura = modelo == null ? 54f : modelo.sizeDelta.x;
+                if (altura < 24f) altura = modelo == null ? 38f : modelo.sizeDelta.y;
+                if (largura < 24f) largura = 54f;
+                if (altura < 24f) altura = 38f;
+
+                GameObject novo = new GameObject(
+                    IdBotao, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+                novo.transform.SetParent(pai, false);
 
                 RectTransform rect = novo.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(0f, 1f);
-                rect.anchorMax = new Vector2(0f, 1f);
-                rect.pivot = new Vector2(0f, 1f);
-                rect.anchoredPosition = new Vector2(18f, -142f);
-                rect.sizeDelta = new Vector2(158f, 50f);
-
-                Canvas overlay = novo.GetComponent<Canvas>();
-                overlay.overrideSorting = true;
-                overlay.sortingOrder = 32000;
-                GraphicRaycaster raycaster = novo.GetComponent<GraphicRaycaster>();
-                if (raycaster == null) novo.AddComponent<GraphicRaycaster>();
+                if (modelo != null)
+                {
+                    rect.anchorMin = modelo.anchorMin;
+                    rect.anchorMax = modelo.anchorMax;
+                    rect.pivot = modelo.pivot;
+                    rect.localScale = modelo.localScale;
+                    rect.sizeDelta = modelo.sizeDelta;
+                }
+                rect.sizeDelta = new Vector2(Math.Max(largura, 52f), altura);
 
                 Image image = novo.GetComponent<Image>();
-                image.color = new Color(0.12f, 0.32f, 0.16f, 1f);
+                Image imagemModelo = referencia.GetComponent<Image>();
+                if (imagemModelo == null) imagemModelo = referencia.GetComponentInChildren<Image>(true);
+                if (imagemModelo != null)
+                {
+                    image.sprite = imagemModelo.sprite;
+                    image.type = imagemModelo.type;
+                    image.material = imagemModelo.material;
+                    image.preserveAspect = imagemModelo.preserveAspect;
+                    image.color = imagemModelo.color;
+                }
+                else
+                {
+                    image.color = new Color(0.16f, 0.32f, 0.19f, 0.98f);
+                }
+
                 Button button = novo.GetComponent<Button>();
                 button.targetGraphic = image;
-                button.onClick.AddListener(AbrirJanelaComDiagnostico);
+                button.transition = Selectable.Transition.ColorTint;
+                ColorBlock colors = button.colors;
+                colors.normalColor = image.color;
+                colors.highlightedColor = new Color(0.35f, 0.50f, 0.32f, 1f);
+                colors.pressedColor = new Color(0.68f, 0.58f, 0.32f, 1f);
+                button.colors = colors;
+                button.onClick.AddListener(delegate { ObservatorioJanelaNativa.Abrir(); });
 
-                GameObject textoObj = new GameObject("Texto_GOVERNO", typeof(RectTransform), typeof(Text));
+                GameObject textoObj = new GameObject("Texto_GOV", typeof(RectTransform), typeof(Text));
                 textoObj.transform.SetParent(novo.transform, false);
                 RectTransform textoRect = textoObj.GetComponent<RectTransform>();
                 textoRect.anchorMin = Vector2.zero;
                 textoRect.anchorMax = Vector2.one;
-                textoRect.offsetMin = new Vector2(4f, 2f);
-                textoRect.offsetMax = new Vector2(-4f, -2f);
+                textoRect.offsetMin = new Vector2(2f, 1f);
+                textoRect.offsetMax = new Vector2(-2f, -1f);
 
                 Text texto = textoObj.GetComponent<Text>();
                 texto.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
                 if (texto.font == null) texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                texto.fontSize = 16;
+                texto.fontSize = 12;
                 texto.fontStyle = FontStyle.Bold;
                 texto.alignment = TextAnchor.MiddleCenter;
                 texto.color = new Color(1f, 0.88f, 0.38f, 1f);
-                texto.text = "GOVERNO";
+                texto.text = "GOV";
                 texto.supportRichText = false;
 
-                novo.transform.SetAsLastSibling();
-                botaoRaiz = novo;
-                ultimoDiagnostico = null;
-                RegistrarEstado("NATIVE_WINDOW_BUTTON_CREATED: GOVERNO | parent=CanvasMain.canvas_ui"
-                    + " | overlay=true | sortingOrder=32000 | anchor=top-left | pos=(18,-142)"
-                    + " | screen=" + Screen.width + "x" + Screen.height);
+                HorizontalLayoutGroup horizontal = pai.GetComponent<HorizontalLayoutGroup>();
+                VerticalLayoutGroup vertical = pai.GetComponent<VerticalLayoutGroup>();
+                if (horizontal != null || vertical != null)
+                {
+                    LayoutElement le = novo.GetComponent<LayoutElement>();
+                    le.minWidth = Math.Max(largura, 52f);
+                    le.preferredWidth = Math.Max(largura, 52f);
+                    le.minHeight = altura;
+                    le.preferredHeight = altura;
+                    novo.transform.SetSiblingIndex(referencia.transform.GetSiblingIndex() + 1);
+                }
+                else
+                {
+                    if (modelo != null)
+                        rect.anchoredPosition = modelo.anchoredPosition + new Vector2(largura + 6f, 0f);
+                    else
+                        rect.anchoredPosition = new Vector2(largura + 6f, 0f);
+                    novo.transform.SetAsLastSibling();
+                }
+
+                novo.SetActive(selecaoAtiva && pai.gameObject.activeInHierarchy);
+                RegistrarRegistro(novo, pai.gameObject);
+                Debug.Log("[Observatorio] NATIVE_CONTROL_BUTTON_CREATED: GOV | painel=" + painel.GetType().Name
+                    + " | referência=" + nomeCampo + " | pai=" + pai.name);
                 return true;
             }
             catch (Exception ex)
             {
-                if (novo != null) UnityEngine.Object.Destroy(novo);
-                botaoRaiz = null;
-                return Falhar("NATIVE_WINDOW_BUTTON_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+                RegistrarAviso("NATIVE_CONTROL_BUTTON_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+                return false;
             }
         }
 
-        private static bool Falhar(string mensagem)
+        private static void RegistrarRegistro(GameObject botao, GameObject pai)
         {
-            RegistrarEstado("[Observatorio] " + mensagem);
-            return false;
+            for (int i = 0; i < registros.Count; i++)
+            {
+                if (registros[i] != null && registros[i].Botao == botao) return;
+            }
+            registros.Add(new Registro { Botao = botao, Pai = pai });
         }
 
-        private static void RegistrarEstado(string mensagem)
+        private static void RegistrarAviso(string mensagem)
         {
-            if (ultimoDiagnostico == mensagem) return;
-            ultimoDiagnostico = mensagem;
+            if (ultimoAviso == mensagem) return;
+            ultimoAviso = mensagem;
             Debug.LogWarning("[Observatorio] " + mensagem);
-        }
-
-        internal static void DefinirEstadoJanela(bool pronta)
-        {
-            if (botaoRaiz == null) return;
-            Text label = botaoRaiz.GetComponentInChildren<Text>(true);
-            if (label == null) return;
-            label.text = pronta ? "GOVERNO" : "GOVERNO !";
-            label.color = pronta
-                ? new Color(1f, 0.88f, 0.38f, 1f)
-                : new Color(1f, 0.42f, 0.30f, 1f);
-        }
-
-        private static void AbrirJanelaComDiagnostico()
-        {
-            try
-            {
-                ObservatorioJanelaNativa.Abrir();
-                DefinirEstadoJanela(true);
-            }
-            catch (Exception ex)
-            {
-                DefinirEstadoJanela(false);
-                Debug.LogError("[Observatorio] NATIVE_WINDOW_OPEN_FAILED: "
-                    + ex.GetType().Name + ": " + ex.Message);
-            }
         }
     }
 
@@ -556,7 +766,6 @@ namespace ObservatorioDosReinos
     public class Main : BasicMod<Main>
     {
         private static EstadoPolitico estadoPolitico;
-        private static EstadoPolitico estadoPolitico;
         private bool uiPendente;
         private bool janelaNativaPronta;
         private bool tentouInicializarJanela;
@@ -564,59 +773,40 @@ namespace ObservatorioDosReinos
 
         private void Update()
         {
+            ObservatorioBotaoPainelNPC.Atualizar();
+
             if (!uiPendente) return;
             quadrosDesdeCarga++;
             if (quadrosDesdeCarga % 30 != 0) return;
-
-            CanvasMain canvasMain = CanvasMain.instance;
-            if (canvasMain == null)
-            {
-                if (quadrosDesdeCarga % 300 == 0)
-                    LogInfo("BOTAO_GOVERNO_AGUARDANDO: CanvasMain.instance ainda não existe.");
-                return;
-            }
-            if (canvasMain.canvas_ui == null || !canvasMain.canvas_ui.activeInHierarchy)
-            {
-                if (quadrosDesdeCarga % 300 == 0)
-                    LogInfo("BOTAO_GOVERNO_AGUARDANDO: CanvasMain.canvas_ui está indisponível ou inativo.");
-                return;
-            }
-
-            // A criação do botão não depende da janela. Assim, um problema ao construir
-            // ScrollWindow não pode impedir o jogador de ver o atalho nem de gerar diagnóstico.
-            bool botaoCriado = ObservatorioAtalhoGov.TentarCriar();
-            if (!botaoCriado)
-            {
-                if (quadrosDesdeCarga % 300 == 0)
-                    LogInfo("BOTAO_GOVERNO_FALHOU: veja [Observatorio] no log para o motivo.");
-                return;
-            }
-
             if (janelaNativaPronta) return;
             if (tentouInicializarJanela && quadrosDesdeCarga % 300 != 0) return;
-            tentouInicializarJanela = true;
 
+            if (CanvasMain.instance == null || CanvasMain.instance.canvas_ui == null)
+            {
+                if (quadrosDesdeCarga % 300 == 0)
+                    LogInfo("JANELA_NATIVA_AGUARDANDO: CanvasMain/canvas_ui ainda não está pronto.");
+                return;
+            }
+
+            tentouInicializarJanela = true;
             try
             {
                 if (ObservatorioJanelaNativa.Instance == null)
                     ObservatorioJanelaNativa.Inicializar();
 
                 janelaNativaPronta = ObservatorioJanelaNativa.Instance != null;
-                ObservatorioAtalhoGov.DefinirEstadoJanela(janelaNativaPronta);
                 if (janelaNativaPronta)
                 {
-                    LogInfo("JANELA_NATIVA_PRONTA: Observatório registrado como janela nativa. Build=0.6.1-dev.");
+                    LogInfo("JANELA_NATIVA_PRONTA: janela administrativa registrada. Build=0.6.2-dev.");
                 }
                 else
                 {
-                    LogInfo("JANELA_NATIVA_FALHOU: CreateAndInit retornou sem uma instância; o botão GOVERNO foi mantido.");
+                    LogInfo("JANELA_NATIVA_FALHOU: CreateAndInit retornou sem uma instância.");
                 }
             }
             catch (Exception ex)
             {
-                ObservatorioAtalhoGov.DefinirEstadoJanela(false);
-                LogInfo("JANELA_NATIVA_FALHOU: " + ex.GetType().Name + ": " + ex.Message
-                    + ". O botão GOVERNO foi mantido para diagnóstico.");
+                LogInfo("JANELA_NATIVA_FALHOU: " + ex.GetType().Name + ": " + ex.Message);
             }
         }
 
