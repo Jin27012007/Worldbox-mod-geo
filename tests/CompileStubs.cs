@@ -1,6 +1,7 @@
 // Compile-time stubs ONLY. These verify source structure and expected API shape.
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace NeoModLoader.api
 {
@@ -57,6 +58,7 @@ namespace UnityEngine
         public T GetComponent<T>() where T : class => default(T);
         public Component GetComponent(Type type) => null;
         public T GetComponentInChildren<T>(bool includeInactive = false) where T : class => default(T);
+        public T[] GetComponentsInChildren<T>(bool includeInactive = false) => Array.Empty<T>();
     }
     public class Transform : Component
     {
@@ -219,4 +221,21 @@ public class CanvasMain : UnityEngine.MonoBehaviour
 public class ScrollWindow : UnityEngine.MonoBehaviour
 {
     public static void showWindow(string id) { }
+}
+
+
+// Test-only Harmony surface; it does not execute patches.
+namespace HarmonyLib
+{
+    using System.Reflection;
+    public class Harmony
+    {
+        public Harmony(string id) { }
+        public MethodInfo Patch(MethodBase original, HarmonyMethod prefix = null, HarmonyMethod postfix = null,
+            HarmonyMethod transpiler = null, HarmonyMethod finalizer = null) { return null; }
+    }
+    public class HarmonyMethod
+    {
+        public HarmonyMethod(MethodInfo method) { }
+    }
 }
