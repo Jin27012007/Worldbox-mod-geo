@@ -86,6 +86,7 @@ namespace ObservatorioDosReinos
     {
         private static MenuAdministracaoOverlay instancia;
         private const string IdBotao = "Observatorio_Admin_Button";
+        private const string BuildTag = "0.5.3-dev";
         private Canvas canvas;
         private RectTransform painel;
         private GameObject faixaAlternativa;
@@ -100,8 +101,6 @@ namespace ObservatorioDosReinos
         private Sprite spriteJanela;
         private Font fonte;
         private Text textoDiagnostico;
-        private Rect lastSafeArea;
-        private int diagnosticoFrames;
         private bool tentouAvisarFalha;
 
 
@@ -155,7 +154,7 @@ namespace ObservatorioDosReinos
             {
                 string safe = Screen.safeArea.width.ToString("0") + "x" + Screen.safeArea.height.ToString("0");
                 if (textoDiagnostico != null)
-                    textoDiagnostico.text = "OBSERVATORIO 0.5.1-dev | tela " + Screen.width + "x" + Screen.height
+                    textoDiagnostico.text = "OBSERVATORIO " + BuildTag + " | tela " + Screen.width + "x" + Screen.height
                         + " | area segura " + safe + " | Canvas ativo=" + (canvas != null && canvas.gameObject.activeInHierarchy)
                         + " | GOV nativo=" + (botaoNativoClonado != null) + " | fallback=" + (faixaAlternativa != null && faixaAlternativa.activeInHierarchy);
             }
@@ -611,7 +610,7 @@ namespace ObservatorioDosReinos
             {
                 Component c=__instance as Component;
                 if(c!=null&&c.gameObject!=null)c.gameObject.SetActive(false);
-                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo. Stack="+trace.Replace("\\n"," | "));
+                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo. Stack="+trace.Replace("\r"," ").Replace("\n"," | "));
                 Abrir();
                 if(instancia!=null && instancia.textoEstado!=null)
                     instancia.textoEstado.text="A janela nativa falhou ao abrir. O Observatorio interceptou essa falha e exibiu o painel alternativo.";
@@ -623,7 +622,7 @@ namespace ObservatorioDosReinos
         private void Start()
         {
             if(faixaAlternativa!=null)faixaAlternativa.SetActive(botaoNativoClonado==null);
-            if(textoDiagnostico!=null)textoDiagnostico.text="OBSERVATORIO 0.5.1-dev | UI iniciada. Procure o botao GOV ou o atalho GOVERNO.";
+            if(textoDiagnostico!=null)textoDiagnostico.text="OBSERVATORIO " + BuildTag + " | UI iniciada. Procure o botao GOV ou o atalho GOVERNO.";
             Debug.Log("[Observatorio] Canvas, botao reserva e painel admin prontos. Screen="+Screen.width+"x"+Screen.height+" safeArea="+Screen.safeArea);
         }
 
