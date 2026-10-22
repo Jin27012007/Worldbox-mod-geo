@@ -785,7 +785,7 @@ namespace ObservatorioDosReinos
             LeitorSeguroDoMundo.Resumo mundo=LeitorSeguroDoMundo.Inspecionar();
             LogInfo("Diagnostico do mundo: mapa="+mundo.MapaEncontrado+", reinos="+mundo.Reinos+", cidades="+mundo.Cidades+", unidades="+mundo.Unidades+".");
             LogInfo("Diagnostico de API (somente leitura): "+mundo.Diagnostico);
-            try{MenuAdministracaoOverlay.CriarSeNecessario();LogInfo("UI administrativa via Canvas criada; botao nativo sera procurado automaticamente.");}
+            try{MenuAdministracaoOverlay.CriarSeNecessario();LogInfo("UI administrativa Canvas solicitada; confirme CANVAS_CREATED/CANVAS_NOT_CREATED no log. O atalho GOVERNO fica visivel como reserva.");}
             catch(Exception ex){LogInfo("UI administrativa indisponivel nesta build: "+ex.GetType().Name+": "+ex.Message);}
             LogInfo("Modo seguro: nenhuma entidade nativa foi alterada pelas opcoes atuais.");
         }
