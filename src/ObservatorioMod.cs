@@ -182,6 +182,12 @@ namespace ObservatorioDosReinos
         private void ConstruirCanvas()
         {
             GameObject go = gameObject;
+            RectTransform rootRect=GetComponent<RectTransform>();
+            if(rootRect!=null)
+            {
+                rootRect.anchorMin=Vector2.zero;rootRect.anchorMax=Vector2.one;
+                rootRect.offsetMin=Vector2.zero;rootRect.offsetMax=Vector2.zero;
+            }
             canvas=GetComponent<Canvas>();
             if(canvas==null)canvas=go.AddComponent<Canvas>();
             canvas.renderMode=RenderMode.ScreenSpaceOverlay;
