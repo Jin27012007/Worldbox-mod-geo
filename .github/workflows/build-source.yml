@@ -30,8 +30,16 @@ jobs:
             echo "SKIPPED_PRIVATE_REFERENCES_NOT_PRESENT" > build/real-reference-status.txt
             echo "Real-reference build skipped: reference DLLs are deliberately not tracked in this public repository. Use a private/local build environment to provide them." >> "$GITHUB_STEP_SUMMARY"
           else
-            dotnet build tests/CompileWorldBoxRefs.csproj --configuration Release --verbosity minimal | tee build/real-reference-build.log
-            echo "PASS" > build/real-reference-status.txt
+            set +e
+            dotnet build tests/CompileWorldBoxRefs.csproj --configuration Release --verbosity minimal > build/real-reference-build.log 2>&1
+            rc=$?
+            cat build/real-reference-build.log
+            if [ "$rc" -eq 0 ]; then
+              echo "PASS" > build/real-reference-status.txt
+            else
+              echo "FAIL" > build/real-reference-status.txt
+              echo "Real-reference compile failed; see build/real-reference-build.log in the artifact." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
       - name: Report limits
         if: always()
@@ -39,7 +47,7 @@ jobs:
           {
             echo '## Build interpretation'
             echo 'Stub-based compilation catches source syntax and internal typing errors.'
-            echo 'A real-reference compile runs only if the exact local/private reference DLLs are present under references/.'
+            echo 'A real-reference compile runs only if exact local/private reference DLLs are present under references/.'
             echo 'No game/loader DLLs are committed to this public repository.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload build diagnostics
