@@ -1,43 +1,30 @@
-# Status técnico — 0.5.5-dev
+# Status técnico — Observatório dos Reinos 0.5.5-dev
 
-## Resumo objetivo
-- Verificação independente do código-fonte contra stubs Unity/NeoModLoader passa no GitHub Actions (`dotnet build tests/CompileStubs.csproj`, 0 erros/0 avisos na revisão 0.5.4-dev). A revisão 0.5.5-dev contém novas alterações; precisa de um novo job de CI.
-- Essa verificação não é uma DLL instalável e não valida a API real do runtime.
-- As DLLs de referência foram analisadas localmente, mas não serão publicadas neste repositório público, porque pertencem ao jogo/loader. O ambiente atual não dispõe de compilador C# local nem permite instalação por rede; a compilação real contra referências exatas ainda fica bloqueada.
+## Build atual
+- GitHub Actions executou `dotnet build tests/CompileStubs.csproj` contra stubs Unity/NML no SHA `179a62596388e2bb5ccc664ed563bdef6f78ffbc`: **Build succeeded, 0 warnings, 0 errors**.
+- O passo de build contra DLLs reais foi corretamente marcado como ignorado porque `references/NeoModLoader.dll`, `Assembly-CSharp-Publicized.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.UI.dll` e `0Harmony.dll` não existem no runner. Eles não são commitados no repositório público.
+- Portanto não existe ainda uma DLL final instalável ou uma compilação contra referências exatas do jogo. A checagem com stubs valida sintaxe/consistência interna, não a API real nem o runtime do aparelho.
 
-## Evidência do dispositivo
-- WorldBox Android 0.51.4, NeoModLoader presente.
-- A stack trace do aparelho mostra `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` durante `StatsWindow.OnEnable()` ao abrir status do reino.
-- A janela nativa fica parcialmente renderizada e, em landscape, janelas/atalhos anteriores desapareceram.
-- O usuário não testou ainda a revisão 0.5.4-dev; então não devemos dizer que o código novo foi executado no dispositivo.
+## Log do aparelho e causa em investigação
+O log do usuário mostra `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` durante `StatsWindow.OnEnable()`, iniciado por `SelectedPowerTabButtons.clickOpenMain()`. A janela nativa fica parcialmente aberta; os painéis anteriormente testados também sumiram em landscape. O usuário ainda não testou a revisão atual 0.5.5-dev.
 
-## Inspeção do IL da assembly de referência fornecida
-- `Assembly-CSharp.dll` contém `StatsWindow.OnEnable()` (token `0x0600478C` no arquivo analisado) e `PowerTabController.showWorldTipSelected(String, Boolean)` (token `0x06003B5B`).
-- O IL de `StatsWindow.OnEnable()` chama `PowerTabController.showWorldTipSelected(...)` durante a abertura da janela.
-- O IL de `showWorldTipSelected` obtém o objeto selecionado e o tipo, compara `prev_selected_meta_id`, consulta `power_tab_library`, invoca `get_localized_worldtip` e atualiza a toolbar. Uma das referências dessa cadeia pode estar nula quando a janela é aberta nessa situação; o arquivo disponível não possui o método `showWhoIsSelected` citado pelo dispositivo, portanto não é possível afirmar qual objeto exato é nulo na execução real.
-- A mesma assembly tem um método `OnEnable` em `StatsWindow` com assinatura sem parâmetros. A API Harmony em `0Harmony.dll` possui overloads `Patch` e construtor de `HarmonyMethod(MethodInfo)` compatíveis com a estratégia reflexiva de prefix/finalizer.
+A inspeção dos metadados/IL do pacote de referência está em `docs/ASSEMBLY_INVESTIGATION.md`. Em síntese, as DLLs fornecidas contêm `StatsWindow.OnEnable()` e `PowerTabController.showWorldTipSelected(String, Boolean)`, mas não os nomes `showWhoIsSelected` e `SelectedPowerTabButtons` da stack do aparelho. É uma divergência comprovada, logo o campo nulo exato continua desconhecido.
 
-## Mudanças em 0.5.5-dev
-- A configuração preventiva do Harmony é tentada **antes** de construir a interface, para uma falha do Canvas não impedir a proteção do status.
-- Descobre e tenta interceptar por prefix os métodos com nome `showWhoIsSelected` ou `showWorldTipSelected` e assinatura `(string, bool)`. O prefix só ignora a chamada quando a stack de chamada está dentro de `StatsWindow.OnEnable`/`WindowMetaGeneric.OnEnable`; nas demais situações deixa o método original rodar. Isso tenta permitir a conclusão da inicialização do status sem chamar a rotina auxiliar de tooltip nessa transição.
-- Mantém finalizer de `StatsWindow.OnEnable` como fallback para a `NullReferenceException` conhecida. Mensagens distintas reportam prefix instalado, finalizer instalado, falhas ou callback acionado.
-- O Canvas agora é o objeto raiz persistente; o `SafeAreaRoot` é um filho que recebe `Screen.safeArea`. Antes a safe area era aplicada diretamente ao objeto Canvas, hipótese concreta para o desaparecimento/escala errada em orientação horizontal.
-- O atalho reserva `GOVERNO` permanece ativo quando o painel está fechado mesmo se o botão `GOV` for encontrado na barra nativa.
-- O `Awake` tenta a proteção Harmony antes da UI, e regista `CANVAS_CREATED` ou `CANVAS_NOT_CREATED` em vez de deixar a criação visual silenciosa.
-- A versão exibida na faixa é `0.5.5-dev`.
+## Mudanças 0.5.5-dev
+- Instalação da proteção Harmony tentada antes de construir UI.
+- Prefix procura ambos os nomes do helper com assinatura `(string,bool)` e tenta ignorar a atualização auxiliar somente quando a chamada ocorre dentro da inicialização do status (`StatsWindow.OnEnable` / `WindowMetaGeneric.OnEnable`). Os outros callers continuam executando o método original.
+- Finalizer é segunda barreira para o `NullReferenceException` conhecido; tenta fechar o `ScrollWindow` ancestral completo em vez de desligar apenas o componente interno.
+- Busca dos tipos tenta `Type.GetType` e depois percorre as assemblies carregadas.
+- Canvas agora é objeto raiz persistente e o `SafeAreaRoot` filho respeita `Screen.safeArea`; o controlador principal atualiza âncoras na rotação.
+- O atalho `GOVERNO` segue visível mesmo se o botão nativo for localizado.
+- Log inclui assembly FullName + MVID de `StatsWindow`, `PowerTabController` e Harmony; isso permitirá comparar runtime real com o pacote de referência.
 
-## O que ainda não está demonstrado
-- A compilação real contra as assemblies privadas exatas do aparelho.
-- Que o prefix consegue ser instalado na runtime exata e captura o método `showWhoIsSelected`.
-- Que o painel aparece no dispositivo e a janela nativa agora termina a inicialização.
-- As ações de governo ainda são rascunhos visuais e não alteram reinos reais.
+## Próximo gate
+1. Executar a compilação stub novamente no último SHA `1606de358330400f4c1d426d2424496cebdb4b37` (docs apenas após último build).
+2. No aparelho, confirmar faixa `OBSERVATORIO 0.5.5-dev`, `CANVAS_CREATED`, `STATUS_INFO_PREFIX_INSTALLED`, `STATUS_WINDOW_FINALIZER_INSTALLED` e linha `Runtime assembly fingerprint`.
+3. Abrir status e procurar `STATUS_INFO_PREFIX_SKIP`. Se persistir erro, registrar MVID e stack completa para identificar a assembly real e mirar o método certo.
 
-## Portão de validação
-1. CI stub-based deve passar na revisão 0.5.5-dev.
-2. No aparelho, confirmar faixa `OBSERVATORIO 0.5.5-dev`, `STATUS_INFO_PREFIX_INSTALLED`, `STATUS_WINDOW_FINALIZER_INSTALLED` e `CANVAS_CREATED`.
-3. Ao tocar status do reino, procurar `STATUS_INFO_PREFIX_SKIP`. Se ocorrer, verificar se a janela abriu por completo; se não houver skip, verificar a razão do prefix não ser instalado ou de não encontrar caller `OnEnable`.
-4. Confirmar atalho `GOVERNO` em retrato e paisagem.
-5. Só então decidir se é necessária uma correção mais específica baseada na assembly exata do processo que gera o log.
-
-## Segurança
-Não commitar as DLLs proprietárias do jogo/Unity no repositório público. Nenhuma entidade de gameplay é alterada por estas opções de demonstração. Não copiar código/assets de Worldfall.
+## Limites
+- Nenhuma DLL final instalável foi produzida nesta rodada.
+- Nenhuma mecânica política altera reinos reais ainda; botões atuais são rascunhos.
+- As DLLs do jogo, Unity e loader não são distribuídas no repositório público.
