@@ -1,13 +1,10 @@
-# Protocolo de teste Android — 0.5.5-dev
+# Protocolo de teste Android — 0.5.6-dev
 
-1. Faça backup da pasta atual e instale somente os arquivos do ZIP da branch `scaffold/observatorio-dos-reinos`.
-2. Em retrato, confirme a faixa `OBSERVATORIO 0.5.5-dev` e o atalho `GOVERNO`.
-3. No log, procure `CANVAS_CREATED`, `STATUS_INFO_PREFIX_INSTALLED` e `STATUS_WINDOW_FINALIZER_INSTALLED`. Se algum estiver ausente, preserve a linha `*_NOT_INSTALLED`/`*_FAILED`.
-4. Gire para paisagem; confirme que a faixa e o atalho continuam visíveis e abra/feche o painel pelo atalho.
-5. Pressione o botão nativo de status do reino. Procure `STATUS_INFO_PREFIX_SKIP`; a janela deve terminar de inicializar sem a rotina auxiliar de tooltip naquela transição.
-6. Se o erro persistir, preserve a stack completa e a linha `Runtime assembly fingerprint` (StatsWindow, PowerTabController e Harmony). Compare os MVIDs com `docs/ASSEMBLY_INVESTIGATION.md` antes de outro patch.
+1. Faça backup da pasta do Observatório dos Reinos antes de atualizar o código a partir do ZIP da branch `scaffold/observatorio-dos-reinos`.
+2. Em retrato, procure a faixa `OBSERVATORIO 0.5.6-dev` e o atalho `GOVERNO`.
+3. No log, confira `CANVAS_CREATED`, `STATUS_INFO_PREFIX_INSTALLED`, `STATUS_WINDOW_FINALIZER_INSTALLED` e a linha `Runtime assembly fingerprint`.
+4. Gire para landscape; confirme que a faixa e o atalho continuam visíveis e que o painel pode ser aberto/fechado pelo atalho.
+5. Toque no botão nativo de status do reino. Procure `STATUS_INFO_PREFIX_SKIP`; confirme se a janela abre por completo.
+6. Se a exceção persistir, envie a stack completa e a linha `Runtime assembly fingerprint`. Compare MVIDs com `docs/ASSEMBLY_INVESTIGATION.md`; não faça novo patch até saber se a DLL em execução corresponde às referências analisadas.
 
-## O que o build comprova
-A verificação independente contra stubs compilou o fonte com zero erros/avisos. Isso não é uma DLL instalável e não verifica as APIs reais. O build contra assemblies reais está preparado, mas as DLLs privadas não são fornecidas ao runner público.
-
-As opções administrativas ainda são demonstrações e não alteram reino, cidades, guerra ou diplomacia reais.
+A última compilação CI confirmou a fonte anterior com stubs. Isso não é uma DLL instalável nem valida o Harmony/runtime real; aguarde o resultado da revisão 0.5.6-dev e não considere o bug resolvido até o teste no dispositivo.
