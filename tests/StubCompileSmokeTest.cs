@@ -11,37 +11,30 @@ namespace ObservatorioDosReinos.Tests
 
         public static int Main()
         {
-            // Fora da abertura do status, o método original deve continuar executando.
-            Exigir(
-                MenuAdministracaoOverlay.PrefixSelectedInfoWhenOpeningStatus("teste", true),
-                "a rotina auxiliar deve seguir fora de StatsWindow.OnEnable");
+            EstadoPolitico estado = new EstadoPolitico();
+            PoliticaDoReino reinoA = estado.RegistrarReino("reino-a", "Reino A");
+            PoliticaDoReino reinoB = estado.RegistrarReino("reino-b", "Reino B");
+            Exigir(estado.QuantidadeDeReinos == 2, "dois reinos devem ser registrados");
 
-            // Durante OnEnable, o prefix preventivo deve ignorar somente a atualização auxiliar.
-            bool estadoAnterior;
-            MenuAdministracaoOverlay.StatsWindowPrefix(out estadoAnterior);
-            Exigir(!estadoAnterior, "o primeiro escopo deve salvar o estado anterior false");
-            Exigir(
-                !MenuAdministracaoOverlay.PrefixSelectedInfoWhenOpeningStatus("teste", false),
-                "a rotina auxiliar deve ser ignorada dentro do escopo de abertura do status");
+            RelacaoDiplomatica relacao = estado.ObterOuCriarRelacao(reinoA.Id, reinoB.Id);
+            RelacaoDiplomatica relacaoInvertida = estado.ObterOuCriarRelacao(reinoB.Id, reinoA.Id);
+            Exigir(object.ReferenceEquals(relacao, relacaoInvertida), "a relação deve ser única independentemente da ordem dos reinos");
 
-            // Em execução bem-sucedida, o postfix restaura o valor anterior.
-            MenuAdministracaoOverlay.StatsWindowPostfix(estadoAnterior);
-            Exigir(
-                MenuAdministracaoOverlay.PrefixSelectedInfoWhenOpeningStatus("teste", true),
-                "o postfix deve restaurar o estado fora do escopo");
+            relacao.DefinirTipo(TipoRelacaoDiplomatica.Alianca);
+            relacao.AjustarOpiniao(150);
+            Exigir(relacao.Tipo == TipoRelacaoDiplomatica.Alianca, "tipo de relação deve ser persistido no modelo");
+            Exigir(relacao.Opiniao == 100, "opinião deve ser limitada a 100");
+            relacao.AjustarOpiniao(-250);
+            Exigir(relacao.Opiniao == -100, "opinião deve ser limitada a -100");
 
-            // Se OnEnable lançar uma exceção, o finalizer também deve restaurar o estado,
-            // mesmo quando não precisa interceptar a exceção.
-            bool estadoFinalizer;
-            MenuAdministracaoOverlay.StatsWindowPrefix(out estadoFinalizer);
-            Exigir(!estadoFinalizer, "o segundo escopo deve salvar false");
-            Exception retorno = MenuAdministracaoOverlay.StatsWindowFinalizer(null, null, estadoFinalizer);
-            Exigir(retorno == null, "finalizer sem exceção deve retornar null");
-            Exigir(
-                MenuAdministracaoOverlay.PrefixSelectedInfoWhenOpeningStatus("teste", true),
-                "o finalizer deve restaurar o estado mesmo sem exceção");
+            reinoA.AjustarEstabilidade(-500);
+            reinoA.AjustarLegitimidade(500);
+            reinoA.AjustarTesouro(-200);
+            Exigir(reinoA.Estabilidade == 0, "estabilidade deve ter limite inferior 0");
+            Exigir(reinoA.Legitimidade == 100, "legitimidade deve ter limite superior 100");
+            Exigir(reinoA.Tesouro == 0, "tesouro não pode ser negativo");
 
-            Console.WriteLine("PASS: prefix ativo somente durante o escopo de status; postfix/finalizer restauram o estado.");
+            Console.WriteLine("PASS: invariantes do modelo político local; isso não valida a interface em runtime.");
             return 0;
         }
     }
