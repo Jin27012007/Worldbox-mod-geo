@@ -1,24 +1,22 @@
 # Protocolo de testes — Android
 
-## Teste atual: sonda ampliada de APIs
-1. Faça cópia da pasta do mod atual e mantenha um mundo descartável.
-2. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos` e atualize a pasta do Observatório dos Reinos, sem tocar na pasta do Worldfall.
-3. Abra o WorldBox e carregue um mundo.
-4. Consulte o log do NeoModLoader e copie as linhas completas `Diagnostico do mundo:` e `Diagnostico de API (somente leitura):`.
-5. Envie também qualquer erro de compilação/carregamento que surgir.
+## Teste da interface `0.4.0-dev`
+1. Faça backup da pasta do Observatório dos Reinos e use um mundo descartável.
+2. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos` e atualize os arquivos desse mod; não toque na pasta do Worldfall.
+3. Abra o jogo e verifique se aparece o botão `Governo` no canto superior esquerdo.
+4. Toque em `Governo`. Teste as abas Governo, Diplomacia, Reuniões e RPG.
+5. Digite nos campos de texto, marque/desmarque as opções e toque nos botões. Eles devem apenas alterar mensagens locais e não modificar o mundo.
+6. Teste em orientação vertical e horizontal. Confirme se a janela inteira cabe na tela e se é possível alcançar os controles com o toque.
+7. Envie uma captura do menu aberto e qualquer log de erro.
 
-Aprovação: o mod é carregado normalmente e o diagnóstico registra o estado da instância do mapa, contagens disponíveis e membros candidatos da API.
+## Teste da janela nativa do status do reino
+A janela nativa que aparece ao controlar um rei continua sendo um problema separado. Confirme se o overlay `Governo` cabe na tela mesmo quando a janela nativa fica cortada. Não afirmamos que a UI nativa foi corrigida nesta versão.
 
-## Notas
-- O diagnóstico é executado em `OnModLoad`. Caso esse ponto ocorra antes de carregar o mundo, as contagens podem estar indisponíveis; os resultados são pistas e não prova de falha do mundo.
-- Campos/membros nomeados como `controlled`, `player`, `king`, etc. são apenas candidatos por nome. Nenhum deles deve ser usado como referência definitiva sem confirmar tipo, valor e comportamento na versão 0.51.4.
-- A sonda não altera dados de jogo, guerras, unidades, reinos ou cidades.
-
-## Próximas fases de teste
-- Confirmar o personagem sob controle com comportamento observável no jogo.
-- Confirmar o reino/cidade vinculados ao personagem.
-- Testar o painel somente leitura na orientação horizontal e vertical.
-- Testar alterações administrativas isoladamente num mundo descartável antes de introduzir ações diplomáticas.
+## Aprovação
+- O mod carrega sem nova exceção.
+- O botão abre e fecha a janela responsiva.
+- As quatro abas alternam, os campos aceitam texto e a rolagem permite acessar o conteúdo.
+- As ações mostram avisos de protótipo e não alteram entidades do jogo.
 
 ## Recuperação
-Em caso de crash, desative o mod e restaure a cópia. Guarde o log desde o início do carregamento.
+Se o jogo travar ou o mod deixar de carregar, desative o Observatório dos Reinos e restaure o backup. Preserve o log desde o início da inicialização para diagnosticar a falha.
