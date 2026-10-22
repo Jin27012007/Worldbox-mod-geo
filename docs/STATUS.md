@@ -1,28 +1,34 @@
-# Status técnico — Observatório dos Reinos 0.6.1-dev
+# Status técnico — Observatório dos Reinos 0.6.2-dev
 
-## Mudanças na revisão 0.6.1-dev
+## Mudanças desta revisão
 
-- O botão `GOVERNO` é criado independentemente da janela `ScrollWindow`; se a janela falhar ao ser construída, o botão não deve desaparecer por causa dessa falha.
-- O botão usa um Canvas próprio com `overrideSorting = true`, ordem de renderização 32000, fundo verde de alto contraste e posição relativa ao canto superior esquerdo de `CanvasMain.canvas_ui`.
-- O log registra explicitamente as condições `CANVAS_MAIN_NULL`, `CANVAS_UI_NULL`, `CANVAS_UI_INACTIVE`, `NATIVE_WINDOW_BUTTON_CREATED` ou `NATIVE_WINDOW_BUTTON_FAILED`.
-- A janela é inicializada depois que o botão já existe. Se a criação falhar, o log emite `JANELA_NATIVA_FALHOU` e o texto do atalho muda para `GOVERNO !`. Ao tocar no botão, uma falha de abertura é registrada como `NATIVE_WINDOW_OPEN_FAILED`.
-- Não há patches Harmony no Observatório. A janela nativa de status volta a seguir o comportamento do jogo sem intervenção deste mod; isso não constitui correção da NullReference original.
+- Removido o botão administrativo no canto superior esquerdo; o objetivo agora é inserir `GOV` no mesmo grupo visual dos controles nativos de seleção/posse.
+- A rotina procura `SelectedPowerTabButtons` e `SelectedPowerTabTopButtons`, com suporte a nomes de campos `possession/possess`, `spectate`, `open_window/open_main/info` e fallback por nome de objetos filhos.
+- O novo botão usa como referência o layout e a imagem de um botão nativo e é inserido como irmão no mesmo contêiner.
+- A visibilidade é sincronizada com os métodos refletidos `SelectedUnit.isSet()` e `SelectedObjects.isNanoObjectSet()`, usados pela UI nativa de seleção. Não deve ficar visível sem uma seleção controlável.
+- A janela de governo continua sendo `AbstractWideWindow<ObservatorioJanelaNativa>`.
+- O Observatório não instala patches Harmony para `StatsWindow`, `showWhoIsSelected` ou `showWorldTipSelected`. O mod não altera a abertura da janela nativa de status.
 
-## Limitações conhecidas
+## Logs para verificar no dispositivo
 
-- O usuário informou que na 0.6.0-dev o botão não apareceu e o erro do status continuou.
-- Esta revisão tenta eliminar uma falha de ordem de inicialização existente: antes, a criação da janela era chamada antes do atalho, então uma exceção na janela impedia o botão de ser construído.
-- A janela e o botão 0.6.1-dev ainda não foram confirmados no telefone.
-- O CI usa stubs para verificar a estrutura do código; não valida a UI em runtime.
-- A compilação com as DLLs reais do aparelho não foi executada neste runner, pois não contém as referências privadas.
-- As ações de Governo/Diplomacia/Reuniões/RPG continuam armazenando escolhas locais de sessão; não modificam entidades/relações/guerras nativas.
+- `NATIVE_CONTROL_BUTTON_CREATED`: o botão foi inserido; a mensagem indica classe, campo de referência e pai do botão.
+- `PAINEL_NPC_AGUARDANDO`: as classes de controle ainda não foram encontradas na cena.
+- `PAINEL_NPC_ENCONTRADO_MAS_BOTAO_NAO_INSERIDO`: o componente foi localizado mas não foi possível descobrir/inserir o botão.
+- `NATIVE_CONTROL_BUTTON_FAILED`: ocorreu uma exceção ao construir o botão.
+- `SELECAO_REFLECTION_FALHOU`: não foi possível consultar o estado da seleção.
 
-## Como diagnosticar no aparelho
+## Validação
 
-Após iniciar o mundo, procure `NATIVE_WINDOW_BUTTON_CREATED`. Se houver `CANVAS_MAIN_NULL`, `CANVAS_UI_NULL` ou `CANVAS_UI_INACTIVE`, o log informa por que o botão não foi inserido. Ao tocar no botão, qualquer exceção de abertura aparece em `NATIVE_WINDOW_OPEN_FAILED`; falha de construção aparece em `JANELA_NATIVA_FALHOU`.
+- GitHub Actions do fonte atualizado: https://github.com/Jin27012007/Worldbox-mod-geo/actions/runs/39858614380
+- Build contra stubs: aprovado com 0 warnings e 0 errors.
+- Teste automatizado: invariantes do modelo político local aprovados.
+- Build contra as DLLs reais: não executado pelo runner público, pois as referências privadas não estão presentes.
+- A nova posição do botão e sua interação ainda **não foram confirmadas no telefone**.
 
-Para a exceção do status, a fonte desta versão já não a intercepta. É necessário o log atualizado que contenha a stack trace do erro após reproduzi-lo nesta versão; o antigo pacote de referência não é suficiente para provar a causa em execução.
+## Limitações funcionais
 
-## Download
+A janela tem páginas Governo, Diplomacia, Reuniões e RPG. Os botões registram preferências e propostas localmente na sessão; ainda não alteram o estado real dos reinos. A remoção dos patches do Observatório permite que a janela de status siga o fluxo original, mas não prova que a exceção relatada foi causada por esses patches nem que a causa do jogo tenha sido corrigida.
 
-ZIP de código-fonte: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
+## Download de código-fonte
+
+https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
