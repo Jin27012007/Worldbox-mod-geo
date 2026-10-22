@@ -2,7 +2,7 @@
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
   "version": "0.6.0-dev",
-  "description": "Canvas responsivo, escopo Harmony aninhado-seguro e diagnóstico de assemblies em runtime.",
+  "description": "Janela administrativa nativa via AbstractWideWindow; sem patches na janela de status",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
