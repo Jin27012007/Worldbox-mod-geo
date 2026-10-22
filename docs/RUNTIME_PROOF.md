@@ -4,7 +4,7 @@ Esta branch é uma base de diagnóstico isolada para WorldBox Android + NeoModLo
 
 ## Por que esta branch existe
 
-As compilações anteriores passaram contra stubs, mas isso não comprovou o carregamento nem a renderização no jogo. Além disso, as referências de assembly disponíveis aqui contêm `SelectedPowerTabTopButtons`, enquanto o log antigo menciona `SelectedPowerTabButtons` e `showWhoIsSelected`. Essas diferenças precisam ser resolvidas com dados do runtime que realmente está rodando no telefone.
+As compilações anteriores passaram contra stubs, mas isso não comprovou o carregamento nem a renderização no jogo. A captura de log fornecida mostra `SelectedPowerTabTopButtons:clickOpenMain()` e `PowerTabController.showWorldTipSelected(String, Boolean)`. Esses identificadores correspondem à DLL `Assembly-CSharp.dll` extraída do pacote de jogo fornecido; o identificador exibido no log (`c8e357a15932475b92df58e3db43b9da`) coincide com o MVID dessa referência. Portanto, não há evidência dessa suposta divergência de nomes/versões. O que ainda falta confirmar é se o NeoModLoader compilou e executou a versão atual do Observatório e se o hook de inserção do botão foi alcançado no runtime.
 
 ## O que ela registra
 
