@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <OutputType>Library</OutputType>
     <AssemblyName>ObservatorioDosReinos</AssemblyName>
     <RootNamespace>ObservatorioDosReinos</RootNamespace>
@@ -8,40 +8,24 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <LangVersion>latest</LangVersion>
     <NoWarn>CS0649;CS0414</NoWarn>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="../src/ObservatorioMod.cs" />
-    <Reference Include="NeoModLoader">
-      <HintPath>../references/NeoModLoader.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp-Publicized">
-      <HintPath>../references/Assembly-CSharp-Publicized.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>../references/UnityEngine.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>../references/UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>../references/UnityEngine.UI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>../references/0Harmony.dll</HintPath>
+    <Reference Include="../references/*.dll">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
   <Target Name="CheckReferenceAssemblies" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('../references/NeoModLoader.dll')" Text="Missing references/NeoModLoader.dll. Copy the local NML DLL into references/." />
     <Error Condition="!Exists('../references/Assembly-CSharp-Publicized.dll')" Text="Missing references/Assembly-CSharp-Publicized.dll from the target WorldBox runtime." />
     <Error Condition="!Exists('../references/UnityEngine.CoreModule.dll')" Text="Missing references/UnityEngine.CoreModule.dll." />
     <Error Condition="!Exists('../references/UnityEngine.UI.dll')" Text="Missing references/UnityEngine.UI.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.TextRenderingModule.dll')" Text="Missing references/UnityEngine.TextRenderingModule.dll." />
+    <Error Condition="!Exists('../references/0Harmony.dll')" Text="Missing references/0Harmony.dll." />
   </Target>
 </Project>
