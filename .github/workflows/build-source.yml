@@ -8,7 +8,7 @@ on:
 
 jobs:
   source-check:
-    name: Compile source and exercise status-guard scope
+    name: Compile source and test local political model
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,7 +17,7 @@ jobs:
         run: dotnet --info
       - name: Compile C# source against isolated Unity/NML stubs
         run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
-      - name: Exercise the prefix/postfix/finalizer scope
+      - name: Exercise the political data model
         run: dotnet run --project tests/CompileStubs.csproj --configuration Release --no-build
       - name: Compile against local real references when safely supplied
         shell: bash
@@ -48,8 +48,8 @@ jobs:
         run: |
           {
             echo '## Build interpretation'
-            echo 'Stub compile + smoke test checks source logic around Harmony scope restoration.'
-            echo 'It is not a mod DLL and does not verify real WorldBox/NeoModLoader runtime compatibility.'
+            echo 'Stub compile + smoke test checks source structure and local political model invariants.'
+            echo 'It is not a mod DLL and does not verify real WorldBox/NeoModLoader runtime compatibility or native window visibility.'
             echo 'A real-reference build runs only if exact local/private reference DLLs are present under references/.'
             echo 'No game/loader DLLs are committed to this public repository.'
           } >> "$GITHUB_STEP_SUMMARY"
