@@ -14,6 +14,14 @@ A janela contém páginas de Governo, Diplomacia, Reuniões e RPG. Os botões de
 
 O repositório contém testes de compilação contra stubs e testes de invariantes do modelo político local. Eles não validam a interface Unity em runtime. Não há ainda confirmação visual da janela no telefone nem uma DLL produzida aqui contra a instalação exata do jogo.
 
+## Baixar e instalar como mod de código-fonte
+
+O ZIP desta branch contém o código-fonte, não uma DLL pré-compilada. O NeoModLoader compila os arquivos `.cs` da pasta do mod. O arquivo `.gitignore` exclui `tests/` da compilação dentro do jogo, pois essa pasta contém stubs exclusivos do CI.
+
+Baixe a branch: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
+
+Extraia a pasta do projeto para o diretório de mods do NeoModLoader, da mesma forma que os demais mods de código-fonte que você já usa. Faça backup da pasta antiga antes de substituir.
+
 Guia de exemplos fornecido na conversa: https://the-official-worldbox-wiki.fandom.com/wiki/Modding_Code_Examples
 
 Referência adicional de janela nativa no código do NeoModLoader: https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/api/AbstractWindow.cs e https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/general/WindowCreator.cs
