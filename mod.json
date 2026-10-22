@@ -1,0 +1,12 @@
+{
+  "name": "Observatorio dos Reinos — Runtime Proof",
+  "author": "Jin27012007",
+  "version": "0.1.0-proof",
+  "description": "Diagnostica o carregamento do mod e a hierarquia real da UI; não adiciona botões.",
+  "GUID": "com.jin27012007.observatoriodosreinos",
+  "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
+  "Dependencies": [],
+  "OptionalDependencies": [],
+  "IncompatibleWith": [],
+  "UsePublicizedAssembly": true
+}
