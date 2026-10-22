@@ -17,21 +17,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mono-devel
       - name: Locate reference assemblies
-        id: refs
         shell: bash
         run: |
-          find . -type f \\( -iname 'Assembly-CSharp-Publicized.dll' -o -iname 'Assembly-CSharp.dll' -o -iname 'NeoModLoader.dll' -o -iname '0Harmony.dll' -o -iname 'UnityEngine.dll' -o -iname 'UnityEngine.CoreModule.dll' -o -iname 'UnityEngine.UI.dll' -o -iname 'mscorlib.dll' \\) -print | sort > build-refs.txt
-          cat build-refs.txt
-          echo "count=$(wc -l < build-refs.txt)" >> "$GITHUB_OUTPUT"
+          mkdir -p build
+          find . -type f -iname '*.dll' -print | sort > build-refs.txt
+          grep -Ei 'Assembly-CSharp(-Publicized)?|NeoModLoader|0Harmony|UnityEngine(\.CoreModule|\.UI)?' build-refs.txt || true
       - name: Compile mod against references
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build
-          mapfile -t refs < build-refs.txt
-          if [ "${'$'}{#refs[@]}" -eq 0 ]; then
+          grep -Ei 'Assembly-CSharp(-Publicized)?\.dll|Assembly-CSharp\.dll|NeoModLoader\.dll|UnityEngine\.dll|UnityEngine\.CoreModule\.dll|UnityEngine\.UI\.dll|0Harmony\.dll' build-refs.txt > build/refs.txt || true
+          mapfile -t refs < build/refs.txt
+          if [ "${'$'}{#refs[@]}" -lt 4 ]; then
             echo "BLOCKED_MISSING_REFERENCE_ASSEMBLIES" > build/compile-status.txt
-            echo "Nenhuma assembly de referência foi encontrada. Não é possível compilar C# do mod sem Unity, NeoModLoader e Assembly-CSharp." > build/NOT_COMPILED.txt
+            echo "As referências de Unity/WorldBox/NeoModLoader não estão presentes. Compilação independente válida não pode ocorrer sem elas." > build/NOT_COMPILED.txt
             exit 0
           fi
           args=()
