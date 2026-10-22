@@ -305,7 +305,6 @@ namespace ObservatorioDosReinos
         {
             GameObject go=NovoUI("Botao "+legenda,pai,typeof(Image),typeof(Button),typeof(LayoutElement));
             Image img=go.GetComponent<Image>();img.color=cor;
-            if(spriteJanela!=null){img.sprite=spriteJanela;img.type=spriteJanela.border.sqrMagnitude>0.01f?Image.Type.Sliced:Image.Type.Simple;}
             LayoutElement le=go.GetComponent<LayoutElement>();le.preferredHeight=altura;le.minHeight=altura;
             Button b=go.GetComponent<Button>();b.targetGraphic=img;b.transition=Selectable.Transition.ColorTint;
             ColorBlock cb=b.colors;cb.normalColor=cor;cb.highlightedColor=new Color(Mathf.Min(cor.r+0.12f,1f),Mathf.Min(cor.g+0.12f,1f),Mathf.Min(cor.b+0.12f,1f),1f);cb.pressedColor=new Color(0.72f,0.61f,0.36f,1f);b.colors=cb;
