@@ -562,10 +562,19 @@ namespace ObservatorioDosReinos
         {
             try
             {
-                Type harmonyType=Type.GetType("HarmonyLib.Harmony, 0Harmony");
-                Type harmonyMethodType=Type.GetType("HarmonyLib.HarmonyMethod, 0Harmony");
+                Type harmonyType=BuscarTipoCarregado("HarmonyLib.Harmony", "HarmonyLib.Harmony, 0Harmony");
+                Type harmonyMethodType=BuscarTipoCarregado("HarmonyLib.HarmonyMethod", "HarmonyLib.HarmonyMethod, 0Harmony");
                 Type statsType=BuscarTipoCarregado("StatsWindow", "StatsWindow, Assembly-CSharp");
                 Type powerType=BuscarTipoCarregado("PowerTabController", "PowerTabController, Assembly-CSharp");
+
+                // Always print the runtime fingerprint before attempting Harmony. If Harmony is
+                // absent or loaded from an unexpected context, this is still the evidence needed
+                // to compare the actual game assemblies with the supplied reference package.
+                Debug.Log("[Observatorio] Runtime assembly fingerprint: StatsWindow="+IdentificarAssembly(statsType)
+                    +"; PowerTabController="+IdentificarAssembly(powerType)
+                    +"; Harmony="+IdentificarAssembly(harmonyType)
+                    +"; HarmonyMethod="+IdentificarAssembly(harmonyMethodType));
+
                 if(harmonyType==null||harmonyMethodType==null)
                 {
                     Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: Harmony ausente. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null)+", PowerTabController="+(powerType!=null));
@@ -589,7 +598,6 @@ namespace ObservatorioDosReinos
 
                 ConstructorInfo harmonyCtor=harmonyType.GetConstructor(new Type[]{typeof(string)});
                 if(harmonyCtor==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: construtor Harmony(string) ausente.");return;}
-                Debug.Log("[Observatorio] Runtime assembly fingerprint: StatsWindow="+IdentificarAssembly(statsType)+"; PowerTabController="+IdentificarAssembly(powerType)+"; Harmony="+IdentificarAssembly(harmonyType));
                 object harmony=harmonyCtor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusguard"});
                 MethodInfo[] harmonyMethods=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
                 MethodInfo patch=EncontrarHarmonyPatch(harmonyMethods);
