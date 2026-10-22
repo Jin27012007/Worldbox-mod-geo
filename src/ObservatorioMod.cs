@@ -622,6 +622,18 @@ namespace ObservatorioDosReinos
                 }
                 else Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_NOT_INSTALLED: PowerTabController="+(powerType!=null)+", prefix="+(prefixHarmony!=null));
 
+                if(statsOnEnable!=null && statusWindowPrefixHarmony!=null)
+                {
+                    try
+                    {
+                        patch.Invoke(harmony,new object[]{statsOnEnable,statusWindowPrefixHarmony,null,null,null});
+                        installedAny=true;
+                        Debug.Log("[Observatorio] STATUS_WINDOW_PREFIX_INSTALLED: "+statsOnEnable);
+                    }
+                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
+                }
+                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", prefix="+(statusWindowPrefixHarmony!=null));
+
                 if(statsOnEnable!=null && finalizerHarmony!=null)
                 {
                     try
