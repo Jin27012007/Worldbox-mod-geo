@@ -706,6 +706,30 @@ namespace ObservatorioDosReinos
             return null;
         }
 
+        private static object ConstruirHarmonyMethod(Type harmonyMethodType, MethodInfo method)
+{
+    try
+    {
+        ConstructorInfo[] cs = harmonyMethodType.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        for (int i = 0; i < cs.Length; i++)
+        {
+            ParameterInfo[] ps = cs[i].GetParameters();
+            if (ps.Length == 1 && ps[0].ParameterType == typeof(MethodInfo)) return cs[i].Invoke(new object[] { method });
+        }
+    }
+    catch (Exception ex) { Debug.Log("[Observatorio] HarmonyMethod constructor probe: " + ex.GetType().Name); }
+    try
+    {
+        object hm = Activator.CreateInstance(harmonyMethodType, true);
+        FieldInfo field = harmonyMethodType.GetField("method", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field != null) { field.SetValue(hm, method); return hm; }
+        PropertyInfo property = harmonyMethodType.GetProperty("method", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        if (property != null && property.CanWrite) { property.SetValue(hm, method, null); return hm; }
+    }
+    catch (Exception ex) { Debug.Log("[Observatorio] HarmonyMethod fallback probe: " + ex.GetType().Name); }
+    return null;
+}
+
         public static void StatsWindowPrefix()
         {
             abrindoStatus=true;
