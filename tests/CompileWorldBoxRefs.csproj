@@ -15,8 +15,8 @@
 
   <ItemGroup>
     <Compile Include="../src/ObservatorioMod.cs" />
-    <!-- IMPORTANT: Publicized assembly keeps the identity Assembly-CSharp.
-         Do not also reference the non-publicized Assembly-CSharp.dll. -->
+    <!-- The game publicized assembly must provide the Assembly-CSharp identity.
+         Exclude the non-publicized copy to avoid duplicate assembly identities. -->
     <Reference Include="Assembly-CSharp">
       <HintPath>../references/Assembly-CSharp-Publicized.dll</HintPath>
       <Private>false</Private>
@@ -25,32 +25,9 @@
       <HintPath>../references/NeoModLoader.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>../references/UnityEngine.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>../references/UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>../references/UnityEngine.UI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>../references/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextCoreTextEngineModule">
-      <HintPath>../references/UnityEngine.TextCoreTextEngineModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextCoreFontEngineModule">
-      <HintPath>../references/UnityEngine.TextCoreFontEngineModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UIModule">
-      <HintPath>../references/UnityEngine.UIModule.dll</HintPath>
+    <!-- Use the full local Unity module set to resolve transitive UI/font references.
+         Keep game/loader DLLs out of this public repository. -->
+    <Reference Include="../references/*.dll" Exclude="../references/Assembly-CSharp.dll;../references/Assembly-CSharp-Publicized.dll;../references/NeoModLoader.dll">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
