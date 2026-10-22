@@ -1,22 +1,29 @@
-# Protocolo de testes — Android
+# Teste Android — `0.5.0-dev`
 
-## Teste da interface `0.4.0-dev`
-1. Faça backup da pasta do Observatório dos Reinos e use um mundo descartável.
-2. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos` e atualize os arquivos desse mod; não toque na pasta do Worldfall.
-3. Abra o jogo e verifique se aparece o botão `Governo` no canto superior esquerdo.
-4. Toque em `Governo`. Teste as abas Governo, Diplomacia, Reuniões e RPG.
-5. Digite nos campos de texto, marque/desmarque as opções e toque nos botões. Eles devem apenas alterar mensagens locais e não modificar o mundo.
-6. Teste em orientação vertical e horizontal. Confirme se a janela inteira cabe na tela e se é possível alcançar os controles com o toque.
-7. Envie uma captura do menu aberto e qualquer log de erro.
+## Antes de atualizar
+- Faça backup da pasta atual do Observatório dos Reinos e mantenha um mundo descartável.
+- Baixe o ZIP do ramo `scaffold/observatorio-dos-reinos`. Não altere a pasta do Worldfall.
 
-## Teste da janela nativa do status do reino
-A janela nativa que aparece ao controlar um rei continua sendo um problema separado. Confirme se o overlay `Governo` cabe na tela mesmo quando a janela nativa fica cortada. Não afirmamos que a UI nativa foi corrigida nesta versão.
+## UI do Observatório
+1. Abra o WorldBox e carregue um mundo.
+2. Procure um pequeno botão `GOV` imediatamente acima do botão nativo de informações. Se a barra nativa não tiver sido localizada, procure o botão reserva `GOVERNO` no canto superior esquerdo.
+3. Toque nele. A janela deve aparecer por cima do jogo, adaptada à tela, com abas Governo, Diplomacia, Reuniões e RPG.
+4. Teste a rolagem, os campos de texto, toggles, botões e a alternância de abas.
+5. Repita em retrato e paisagem.
 
-## Aprovação
-- O mod carrega sem nova exceção.
-- O botão abre e fecha a janela responsiva.
-- As quatro abas alternam, os campos aceitam texto e a rolagem permite acessar o conteúdo.
-- As ações mostram avisos de protótipo e não alteram entidades do jogo.
+## Fallback da janela nativa de status
+1. Possua/controle um rei como nos testes anteriores.
+2. Toque no botão nativo de informações/status do reino.
+3. Se a falha conhecida reaparecer como `NullReferenceException` dentro do caminho `showWhoIsSelected` ou `showWorldTipSelected` durante `StatsWindow.OnEnable`, o patch tenta fechar a janela nativa incompleta e abrir o painel alternativo, sem propagar essa exceção conhecida.
+4. Outros tipos de exceção não são suprimidos.
 
-## Recuperação
-Se o jogo travar ou o mod deixar de carregar, desative o Observatório dos Reinos e restaure o backup. Preserve o log desde o início da inicialização para diagnosticar a falha.
+## Logs úteis
+- `UI administrativa via Canvas criada`
+- `Protecao de fallback instalada para erro NullReference no status do reino`
+- `Botao de governo inserido acima do botao nativo de informacoes`
+- `Interceptado NullReference na UI nativa de status`
+
+## Interpretação
+- Se o mod não carregar ou se as mensagens do Observatório não aparecerem, a revisão atual não foi compilada/executada ou houve erro anterior ao `OnModLoad`.
+- Se o fallback do status não aparecer, enviar a stack trace completa: os nomes do assembly público que recebemos não coincidem exatamente com os da stack atual do aparelho.
+- O menu é visual; nenhuma das opções altera reinos, cidades, unidades, guerra ou diplomacia nesta fase.
