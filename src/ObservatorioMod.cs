@@ -700,7 +700,7 @@ namespace ObservatorioDosReinos
                 novo.SetActive(selecaoAtiva && pai.gameObject.activeInHierarchy);
                 RegistrarRegistro(novo, pai.gameObject);
                 Debug.Log("[Observatorio] NATIVE_CONTROL_BUTTON_CREATED: GOV | painel=" + painel.GetType().Name
-                    + " | referência=" + nomeCampo + " | pai=" + pai.name);
+                    + " | referência=" + nomeCampo + " | pai=" + pai.gameObject.name);
                 return true;
             }
             catch (Exception ex)
