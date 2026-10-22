@@ -1,22 +1,21 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto original para adicionar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado pelo usuário: WorldBox Android 0.51.4 + NeoModLoader.
+Projeto original para acrescentar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado: WorldBox Android 0.51.4 com NeoModLoader.
 
-## `0.5.2-dev`
-A revisão mantém um Canvas Unity UI com quatro abas de protótipo e acrescenta diagnóstico visível do estado da UI: resolução, área segura, Canvas ativo, botão nativo localizado e fallback visível. Um finalizer Harmony tenta interceptar apenas a NullReferenceException cujo stack contém `showWhoIsSelected` ou `showWorldTipSelected` durante `StatsWindow.OnEnable`, fechar a janela nativa incompleta e abrir o painel alternativo.
+## Estado atual — `0.5.4-dev`
+- UI Unity Canvas com abas de Governo, Diplomacia, Reuniões e RPG, campos, toggles e botões de demonstração.
+- Botão `GOV` tenta aparecer próximo ao status nativo; um atalho `GOVERNO` serve de reserva.
+- A UI tem diagnóstico de resolução/área segura, estado do Canvas e localização do botão; a instalação Harmony registra `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`.
+- A compilação independente do fonte contra stubs Unity/NML passou no GitHub Actions com **0 erros e 0 avisos**. Essa é uma verificação de sintaxe/tipos internos, não uma DLL instalável e não prova compatibilidade real com as assemblies do jogo.
 
-## O que o log realmente comprovou
-A captura do usuário mostra repetidamente `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` chamado durante `StatsWindow.OnEnable()`, via `SelectedPowerTabButtons.clickOpenMain()`. As versões anteriores não fizeram o painel/fallback aparecer no dispositivo. A DLL publicizada fornecida tem nomes diferentes, então ainda não se sabe qual objeto runtime está nulo, nem se o patch Harmony foi instalado/acionado na revisão testada.
+## Falha nativa ainda em aberto
+A captura do telefone mostra `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` dentro de `StatsWindow.OnEnable()`. A janela deixa de renderizar corretamente e some em landscape. A proteção do mod não foi confirmada funcionando no aparelho.
 
-## Próximo teste — obrigatório antes de outro patch visual
-1. Faça backup e instale o ZIP da branch `scaffold/observatorio-dos-reinos`.
-2. Confirme se o banner `OBSERVATORIO 0.5.1-dev`/`0.5.2-dev` aparece.
-3. Abra o log desde o carregamento e procure `Canvas, botao reserva e painel admin prontos`, `Protecao de fallback instalada`, `UI administrativa via Canvas criada`.
-4. Ao abrir o status do reino, verifique `FINALIZER ACIONADO`.
-5. Se as mensagens de carregamento faltarem, o código não está efetivamente executando; corrigir a cadeia de instalação/compilação antes de alterar layout. Se aparecem mas o finalizer nunca roda, conferir assinatura/método real do Harmony contra a assembly exata.
+## Incompatibilidade na assembly de referência
+O pacote de referência enviado contém `Assembly-CSharp-Publicized.dll` e `Assembly-CSharp.dll` que, pela inspeção de identificadores, expõem `SelectedPowerTabTopButtons` e `showWorldTipSelected`, mas não os nomes `SelectedPowerTabButtons` / `showWhoIsSelected` da stack real. As assemblies fornecidas, portanto, não correspondem à versão/runtime que originou a captura, apesar de a informação de versão visível ser semelhante. O campo nulo exato segue desconhecido.
 
-## Limitações
-- Não afirmar que o painel está funcionando até ser visto no telefone.
-- O campo de rei/reino real e as ações políticas continuam não integrados.
-- Botões atuais não alteram as entidades do mundo.
-- Não incluir DLLs do jogo ou loader; não copiar código/assets de Worldfall.
+## O que falta para compilar de verdade
+Uma DLL instalável precisa ser compilada contra as assemblies privadas exatas de WorldBox 0.51.4 + NML. Essas DLLs não serão copiadas para o repositório público. O código atual ainda não foi compilado contra elas nem validado no Android.
+
+## Próximo teste útil
+Após instalar o ZIP desta branch com backup, procure `OBSERVATORIO 0.5.4-dev` e `GOVERNO`. No log, confira `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`; ao pressionar o status, procure `FINALIZER ACIONADO`. Sem a faixa e os logs, não devemos depurar layout nem assumir que o patch carregou.
