@@ -1,0 +1,37 @@
+name: Build source mod
+on:
+  push:
+    branches: [scaffold/observatorio-dos-reinos]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Mono compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mono-devel
+      - name: Locate compatible assemblies
+        run: |
+          echo "Looking for a local game/NeoModLoader reference bundle..."
+          find . -type f \( -iname 'Assembly-CSharp-Publicized.dll' -o -iname 'Assembly-CSharp.dll' -o -iname 'NeoModLoader.dll' -o -iname 'UnityEngine.CoreModule.dll' -o -iname 'UnityEngine.dll' \) -print
+          echo "No game/loader DLLs are committed; build requires user-supplied reference assemblies."
+      - name: Check C# syntax and project source
+        run: |
+          mcs -target:library -out:/tmp/probe.dll src/*.cs 2>&1 | tee /tmp/compiler.log
+        continue-on-error: true
+      - name: Preserve compiler diagnostics
+        if: always()
+        run: |
+          {
+            echo '## Compile diagnostics'
+            echo 'The build may require WorldBox/NeoModLoader reference assemblies not stored in the repository.'
+            echo '```text'
+            cat /tmp/compiler.log 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
