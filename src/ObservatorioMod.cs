@@ -256,7 +256,7 @@ namespace ObservatorioDosReinos
         private void DefinirAberto(bool valor)
         {
             if(painel!=null)painel.gameObject.SetActive(valor);
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(!valor);
+            if(faixaAlternativa!=null)faixaAlternativa.SetActive(!valor && botaoNativoClonado==null);
         }
 
         private void Acao(Transform pai,string nome,string resposta)
