@@ -1,33 +1,32 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto experimental de interface de governo e diplomacia para WorldBox Android 0.51.4 + NeoModLoader.
+Projeto experimental para WorldBox Android 0.51.4 + NeoModLoader.
 
-## 0.6.2-dev — botão no painel de seleção/controle de NPC
+## 0.6.3-dev — integração pelo ciclo do painel de NPC
 
-A janela administrativa usa `NeoModLoader.api.AbstractWideWindow<T>` e o registro nativo de janelas do WorldBox. O botão global no canto superior esquerdo foi removido.
+O botão global de canto de tela foi removido. A versão 0.6.3-dev tenta instalar um postfix Harmony no método `Update()` das classes carregadas `SelectedPowerTabButtons` e `SelectedPowerTabTopButtons` (e outras classes chamadas `SelectedPowerTab*Buttons`). A inserção do botão acontece a partir do componente real que atualiza a aba de controles, em vez de depender apenas de uma busca global por objetos.
 
-O mod agora procura, por reflexão, a área de controles de `SelectedPowerTabButtons` ou `SelectedPowerTabTopButtons`. Quando encontra a referência do botão de posse, espectador ou abertura de janela, cria um botão `GOV` como irmão no mesmo contêiner de UI. O botão só fica visível enquanto `SelectedUnit.isSet()` ou `SelectedObjects.isNanoObjectSet()` reporta uma seleção, acompanhando o contexto em que os botões de seleção nativos são usados.
+O código procura primeiro os campos nativos de posse/espectador/abertura de informações; se esses nomes foram alterados, tenta usar outro botão que exista dentro do mesmo componente. Se a classe existir mas não tiver nenhum botão-filho, o código cria `GOV` diretamente sob a raiz desse painel. O botão aparece com a seleção de NPC/unidade quando os métodos de seleção conhecidos são encontrados; se a revisão do jogo não expuser esses métodos, usa o estado ativo do próprio painel.
 
-O Observatório **não instala patches Harmony na janela de status**. A remoção desses patches devolve o fluxo de abertura ao jogo, mas não prova que a `NullReferenceException` original foi corrigida.
+O clique no botão abre `ObservatorioJanelaNativa`. O mod não aplica patches na janela de status do jogo.
 
-## A janela administrativa
+## Diagnóstico incorporado
 
-O botão `GOV` abre uma janela nativa com páginas Governo, Diplomacia, Reuniões e RPG. Os controles de proposta, pauta e evento registram dados locais durante a sessão; eles ainda **não alteram reinos, cidades, diplomacia ou guerras reais**.
+Após iniciar o jogo, procure no log por:
+- `NPC_CONTROL_HOOK_SUMMARY`: classes de controle encontradas e quantidade de hooks conectados.
+- `NPC_CONTROL_HOOK_INSTALLED`: o postfix foi instalado em `Update()`.
+- `NATIVE_CONTROL_BUTTON_CREATED`: o botão foi criado, com a classe de painel, referência e contêiner.
+- `NPC_CONTROL_REFERENCE_FALLBACK`: os nomes dos campos mudaram, então foi usada outra referência ou a raiz do painel.
+- `NPC_CONTROL_PANEL_NOT_FOUND`, `NPC_CONTROL_HOOK_FAILED` ou `NATIVE_CONTROL_BUTTON_FAILED`: o ponto exato que falhou.
+
+Essas mensagens são importantes: compilação não garante que o componente exista no runtime correto.
 
 ## Download
 
-ZIP da branch de desenvolvimento: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
+ZIP do código-fonte: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
 
-É um pacote de código-fonte, não uma DLL pré-compilada. Faça backup da versão anterior antes de substituir os arquivos e mantenha `mod.json` na raiz do diretório do mod. O `.gitignore` exclui `tests/` para que os stubs do CI não sejam compilados como parte do mod.
+É pacote-fonte, não uma DLL pré-compilada. Faça backup da pasta atual antes de substituir os arquivos, extraia com `mod.json` na raiz e confirme que a versão carregada no log é `0.6.3-dev`.
 
-## Verificação e limites
+## Limites atuais
 
-O CI mais recente compila a fonte contra stubs e testa invariantes do modelo político local. Isso verifica a compilação/estrutura do código, mas não comprova que o botão foi encontrado e renderizado dentro do Unity em execução. A compilação com as DLLs reais ainda não ocorreu neste runner, que não possui as referências privadas do aparelho.
-
-Na primeira execução, procure no log `NATIVE_CONTROL_BUTTON_CREATED`. Se o botão não aparecer, procure `PAINEL_NPC_AGUARDANDO`, `PAINEL_NPC_ENCONTRADO_MAS_BOTAO_NAO_INSERIDO` ou `NATIVE_CONTROL_BUTTON_FAILED`.
-
-Guia de exemplos: https://the-official-worldbox-wiki.fandom.com/wiki/Modding_Code_Examples
-
-Referências de janela nativa:
-- https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/api/AbstractWindow.cs
-- https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/general/WindowCreator.cs
+O CI compila contra stubs, verifica o modelo político local e **não simula a interface do Unity em execução**. A compilação local contra as referências privadas e a confirmação visual no Android ainda são necessárias. As ações de governo/diplomacia permanecem dados locais de sessão; não alteram os reinos reais.
