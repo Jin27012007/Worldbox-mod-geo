@@ -86,7 +86,7 @@ namespace ObservatorioDosReinos
     {
         private static MenuAdministracaoOverlay instancia;
         private const string IdBotao = "Observatorio_Admin_Button";
-        private const string BuildTag = "0.5.4-dev";
+        private const string BuildTag = "0.5.5-dev";
         private Canvas canvas;
         private RectTransform painel;
         private GameObject faixaAlternativa;
@@ -109,7 +109,7 @@ namespace ObservatorioDosReinos
             if (instancia != null) return;
             MenuAdministracaoOverlay encontrada = FindObjectOfType<MenuAdministracaoOverlay>();
             if (encontrada != null) { instancia=encontrada; return; }
-            GameObject raiz = new GameObject("ObservatorioDosReinos_RuntimeUI");
+            GameObject raiz = new GameObject("ObservatorioDosReinos_RuntimeUI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             DontDestroyOnLoad(raiz);
             instancia=raiz.AddComponent<MenuAdministracaoOverlay>();
         }
@@ -130,10 +130,29 @@ namespace ObservatorioDosReinos
             if (instancia != null && instancia != this) { Destroy(gameObject); return; }
             instancia=this;
             DontDestroyOnLoad(gameObject);
-            fonte=Resources.GetBuiltinResource<Font>("Arial.ttf");
-            spriteJanela=BuscarSpriteJanela();
-            ConstruirCanvas();
-            InstalarProtecaoStatus();
+
+            // A protecao da janela deve ser tentada antes da construcao visual:
+            // uma falha do Canvas nao pode impedir o patch de status.
+            try { InstalarProtecaoStatus(); }
+            catch(Exception ex) { Debug.LogError("[Observatorio] Erro ao instalar protecao de status: "+ex.GetType().Name+": "+ex.Message); }
+
+            try
+            {
+                fonte=Resources.GetBuiltinResource<Font>("Arial.ttf");
+                if(fonte==null)fonte=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if(fonte==null)
+                {
+                    UnityEngine.Object[] fonts=Resources.FindObjectsOfTypeAll(typeof(Font));
+                    for(int i=0;i<fonts.Length;i++){fonte=fonts[i] as Font;if(fonte!=null)break;}
+                }
+                spriteJanela=BuscarSpriteJanela();
+                ConstruirCanvas();
+                Debug.Log("[Observatorio] CANVAS_CREATED: root canvas e SafeAreaRoot inicializados.");
+            }
+            catch(Exception ex)
+            {
+                Debug.LogError("[Observatorio] CANVAS_NOT_CREATED: "+ex.GetType().Name+": "+ex.Message);
+            }
         }
 
         private void Update()
@@ -162,18 +181,26 @@ namespace ObservatorioDosReinos
 
         private void ConstruirCanvas()
         {
-            GameObject go = new GameObject("Observatorio_Admin_Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            go.transform.SetParent(transform, false);
-            canvas=go.GetComponent<Canvas>();
+            GameObject go = gameObject;
+            canvas=GetComponent<Canvas>();
+            if(canvas==null)canvas=go.AddComponent<Canvas>();
             canvas.renderMode=RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder=32000;
-            CanvasScaler scaler=go.GetComponent<CanvasScaler>();
+            CanvasScaler scaler=GetComponent<CanvasScaler>();
+            if(scaler==null)scaler=go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution=new Vector2(720f,1280f);
             scaler.matchWidthOrHeight=0.5f;
-            go.AddComponent<CanvasSafeAreaLayout>();
+            if(GetComponent<GraphicRaycaster>()==null)go.AddComponent<GraphicRaycaster>();
 
-            GameObject fallback=NovoUI("Atalho reserva Governo",go.transform,typeof(Image),typeof(Button));
+            GameObject safeRoot=NovoUI("SafeAreaRoot",go.transform,typeof(RectTransform));
+            RectTransform safeRect=safeRoot.GetComponent<RectTransform>();
+            safeRect.anchorMin=Vector2.zero;safeRect.anchorMax=Vector2.one;
+            safeRect.offsetMin=Vector2.zero;safeRect.offsetMax=Vector2.zero;
+            safeRoot.AddComponent<CanvasSafeAreaLayout>();
+            Transform uiRoot=safeRoot.transform;
+
+            GameObject fallback=NovoUI("Atalho reserva Governo",uiRoot,typeof(Image),typeof(Button));
             RectTransform fr=fallback.GetComponent<RectTransform>();
             fr.anchorMin=new Vector2(0.02f,0.87f); fr.anchorMax=new Vector2(0.32f,0.93f);
             fr.offsetMin=Vector2.zero; fr.offsetMax=Vector2.zero;
@@ -183,7 +210,7 @@ namespace ObservatorioDosReinos
             TextoFilho(fallback.transform,"GOVERNO",15,FontStyle.Bold,new Color(1f,0.72f,0.28f));
             faixaAlternativa=fallback;
 
-            GameObject diag=NovoUI("Diagnostico visivel",go.transform,typeof(Image));
+            GameObject diag=NovoUI("Diagnostico visivel",uiRoot,typeof(Image));
             RectTransform dr=diag.GetComponent<RectTransform>();
             dr.anchorMin=new Vector2(0.02f,0.80f);dr.anchorMax=new Vector2(0.98f,0.86f);
             dr.offsetMin=Vector2.zero;dr.offsetMax=Vector2.zero;
@@ -191,7 +218,7 @@ namespace ObservatorioDosReinos
             textoDiagnostico=TextoFilho(diag.transform,"Observatorio carregado: inicializando interface...",12,FontStyle.Bold,new Color(1f,0.76f,0.30f));
             textoDiagnostico.alignment=TextAnchor.MiddleLeft;
 
-            GameObject p=NovoUI("Painel de administracao",go.transform,typeof(Image));
+            GameObject p=NovoUI("Painel de administracao",uiRoot,typeof(Image));
             painel=p.GetComponent<RectTransform>();
             painel.anchorMin=new Vector2(0.045f,0.045f); painel.anchorMax=new Vector2(0.955f,0.955f);
             painel.offsetMin=Vector2.zero; painel.offsetMax=Vector2.zero; painel.pivot=new Vector2(0.5f,0.5f);
@@ -287,7 +314,7 @@ namespace ObservatorioDosReinos
         private void DefinirAberto(bool valor)
         {
             if(painel!=null)painel.gameObject.SetActive(valor);
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(!valor && botaoNativoClonado==null);
+            if(faixaAlternativa!=null)faixaAlternativa.SetActive(!valor);
         }
 
         private void Acao(Transform pai,string nome,string resposta)
@@ -434,7 +461,7 @@ namespace ObservatorioDosReinos
                     if(info.gameObject.scene.IsValid()==false)continue;
                     if(info.transform.parent.Find(IdBotao)!=null){botaoNativoClonado=info.transform.parent.Find(IdBotao).GetComponent<Button>();return;}
                     Button novo=CriarBotaoVizinho(info);
-                    if(novo!=null){botaoNativoClonado=novo;donoBotaoNativo=c;if(faixaAlternativa!=null)faixaAlternativa.SetActive(false);Debug.Log("[Observatorio] Botao de governo inserido acima do botao nativo de informacoes.");return;}
+                    if(novo!=null){botaoNativoClonado=novo;donoBotaoNativo=c;Debug.Log("[Observatorio] Botao de governo inserido acima do botao nativo de informacoes; atalho de reserva mantido visivel.");return;}
                 }
             }
         }
@@ -698,7 +725,7 @@ namespace ObservatorioDosReinos
 
         private void Start()
         {
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(botaoNativoClonado==null);
+            if(faixaAlternativa!=null)faixaAlternativa.SetActive(true);
             if(textoDiagnostico!=null)textoDiagnostico.text="OBSERVATORIO " + BuildTag + " | UI iniciada. Procure o botao GOV ou o atalho GOVERNO.";
             Debug.Log("[Observatorio] Canvas, botao reserva e painel admin prontos. Screen="+Screen.width+"x"+Screen.height+" safeArea="+Screen.safeArea);
         }
