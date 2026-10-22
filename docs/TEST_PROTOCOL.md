@@ -1,22 +1,20 @@
-# Protocolo de teste Android — 0.5.4-dev
+# Protocolo de teste Android — 0.5.5-dev
 
-## Antes de instalar
+## Antes da instalação
 - Faça backup da pasta do Observatório dos Reinos.
-- Use somente o ZIP da branch scaffold/observatorio-dos-reinos e substitua apenas os arquivos desse mod.
-- O build checker passa contra stubs; a DLL de mod ainda não foi compilada contra assemblies privadas do jogo.
+- Instale somente os arquivos do ZIP da branch `scaffold/observatorio-dos-reinos`.
+- A verificação C# contra stubs não é uma DLL instalável nem valida todas as chamadas da API real.
 
-## Conferir a inicialização
-1. Abra o WorldBox em retrato e procure a faixa `OBSERVATORIO 0.5.4-dev` e o botão `GOVERNO`.
-2. No log, localize `Canvas, botao reserva e painel admin prontos` e `UI administrativa via Canvas criada`.
-3. Procure `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`. Se falhou, preserve a mensagem e a lista de assinaturas Harmony/OnEnable.
-4. Toque no botão `GOVERNO`; teste as quatro abas, os campos de texto, botões e rolagem.
-5. Gire para landscape; confirme que a faixa e o atalho continuam visíveis.
+## Confirmar que a nova versão carregou
+1. Em retrato, procure a faixa `OBSERVATORIO 0.5.5-dev` e o atalho `GOVERNO`.
+2. No log, procurar `CANVAS_CREATED` ou `CANVAS_NOT_CREATED`.
+3. Procurar `STATUS_INFO_PREFIX_INSTALLED` e `STATUS_WINDOW_FINALIZER_INSTALLED` (ou os logs detalhados `NOT_INSTALLED/FAILED`).
+4. Gire para paisagem: a faixa e o atalho `GOVERNO` devem continuar acessíveis; abrir e fechar o painel pelo atalho.
 
-## Testar status nativo
+## Testar o status do reino
 1. Possua um rei como nos testes anteriores.
-2. Pressione o botão nativo de status.
-3. Se o finalizer rodar, o log conterá `FINALIZER ACIONADO` e o painel alternativo deverá abrir. Se a exceção ocorrer sem esse registro, o patch não interceptou o método em execução.
-4. Não considere o erro corrigido apenas porque a janela fechou; precisamos confirmar que o status funciona ou que o fallback é estável.
+2. Toque no botão nativo de informações/status do reino.
+3. O prefix preventivo deve registrar `STATUS_INFO_PREFIX_SKIP` se o método de tooltip/seleção for chamado durante `StatsWindow.OnEnable`. A intenção é permitir que a janela conclua a inicialização sem executar essa rotina auxiliar nessa transição.
+4. Se ainda ocorrer `NullReferenceException`, guardar o log completo: se prefix não instalou, usar a razão `STATUS_INFO_PREFIX_NOT_INSTALLED/FAILED`; se instalou mas não houve `SKIP`, a stack real pode usar outro método/nome ou o frame caller não foi reconhecido; se houve `SKIP` mas a exceção persiste, ela vem de outra referência dentro de `StatsWindow.OnEnable`.
 
-## Se a faixa/log não aparecer
-Isso indica que a revisão correta não está a correr ou que a UI não foi criada; nesse caso não vale a pena ajustar posições visuais. Envie o log completo desde o arranque do mod.
+Nenhuma das ações de administração altera dados do mundo nessa versão.
