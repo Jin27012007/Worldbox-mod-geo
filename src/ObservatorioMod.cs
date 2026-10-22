@@ -98,6 +98,7 @@ namespace ObservatorioDosReinos
         private Button botaoNativoClonado;
         private Component donoBotaoNativo;
         private bool patchInstalado;
+        private static bool abrindoStatus;
         private Sprite spriteJanela;
         private Font fonte;
         private Text textoDiagnostico;
