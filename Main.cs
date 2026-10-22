@@ -296,9 +296,12 @@ public sealed class Main : BasicMod<Main>
     {
         string selectedUnit = ReadStaticBoolean("SelectedUnit", "isSet");
         string selectedObjects = ReadStaticBoolean("SelectedObjects", "isNanoObjectSet");
-        LogInfo("[OR-BASELINE] SELECTION_PROBE frame=" + frameCount
-            + "; SelectedUnit.isSet=" + selectedUnit
-            + "; SelectedObjects.isNanoObjectSet=" + selectedObjects);
+        LogSignatureIfChanged(
+            "selection-state",
+            selectedUnit + "|" + selectedObjects,
+            "[OR-BASELINE] SELECTION_PROBE frame=" + frameCount
+                + "; SelectedUnit.isSet=" + selectedUnit
+                + "; SelectedObjects.isNanoObjectSet=" + selectedObjects);
 
         for (int n = 0; n < ControlTypeNames.Length; n++)
         {
@@ -349,12 +352,14 @@ public sealed class Main : BasicMod<Main>
             for (int i = 0; i < sceneComponents.Count; i++)
             {
                 Component component = sceneComponents[i];
-                signature.Append("|").Append(component.gameObject.name)
+                signature.Append("|id=").Append(component.GetInstanceID())
+                    .Append(":").Append(component.gameObject.name)
                     .Append(":active=").Append(component.gameObject.activeInHierarchy)
                     .Append(":parent=").Append(component.transform.parent == null
                         ? "(none)"
                         : component.transform.parent.gameObject.name)
-                    .Append(":buttons=").Append(CountChildButtons(component));
+                    .Append(":buttons=").Append(CountChildButtons(component))
+                    .Append(":fields=").Append(DescribeButtonFieldSignature(component));
             }
 
             string signatureText = signature.ToString();
@@ -507,6 +512,63 @@ public sealed class Main : BasicMod<Main>
                 LogInfo("[OR-BASELINE] UI_FIELD_ERROR field=" + name + "; error=" + ex.GetType().Name);
             }
         }
+    }
+
+    private static string DescribeButtonFieldSignature(Component component)
+    {
+        FieldInfo[] fields;
+        try
+        {
+            fields = component.GetType().GetFields(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        }
+        catch
+        {
+            return "fields-error";
+        }
+
+        StringBuilder signature = new StringBuilder();
+        int reported = 0;
+        for (int i = 0; i < fields.Length && reported < 24; i++)
+        {
+            string name = fields[i].Name;
+            if (name.IndexOf("button", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("possess", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("spectate", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("select", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("window", StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            try
+            {
+                object value = fields[i].GetValue(component);
+                GameObject gameObject = value as GameObject;
+                Component referencedComponent = value as Component;
+                if (referencedComponent != null) gameObject = referencedComponent.gameObject;
+
+                signature.Append("|").Append(name).Append("=");
+                if (gameObject == null)
+                {
+                    signature.Append(value == null ? "(null)" : value.GetType().FullName);
+                }
+                else
+                {
+                    signature.Append(gameObject.name)
+                        .Append(";active=").Append(gameObject.activeInHierarchy)
+                        .Append(";parent=").Append(gameObject.transform.parent == null
+                            ? "(none)"
+                            : gameObject.transform.parent.gameObject.name)
+                        .Append(";rect=").Append(DescribeRect(gameObject.transform as RectTransform));
+                }
+                reported++;
+            }
+            catch (Exception ex)
+            {
+                signature.Append("|").Append(name).Append("=ERROR_").Append(ex.GetType().Name);
+            }
+        }
+
+        return reported == 0 ? "(no-button-fields)" : signature.ToString();
     }
 
     private void LogChildButtons(Component component)
