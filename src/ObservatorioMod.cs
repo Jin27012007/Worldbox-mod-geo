@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using HarmonyLib;
 using NeoModLoader.api;
 using UnityEngine;
 using UnityEngine.UI;
@@ -397,96 +398,204 @@ namespace ObservatorioDosReinos
     internal static class ObservatorioBotaoPainelNPC
     {
         private const string IdBotao = "Observatorio_Botao_Governo_NPC";
-        private const int IntervaloBusca = 20;
+        private const string IdHarmony = "com.jin27012007.observatoriodosreinos.npc-control-button";
+        private const BindingFlags Instancia = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const BindingFlags Estatico = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
         private sealed class Registro
         {
             public GameObject Botao;
             public GameObject Pai;
+            public Component Painel;
         }
 
         private static readonly List<Registro> registros = new List<Registro>();
-        private static int quadros;
+        private static readonly HashSet<MethodBase> metodosComHook = new HashSet<MethodBase>();
+        private static readonly HashSet<string> avisosJaEmitidos = new HashSet<string>();
+        private static Harmony harmony;
+        private static bool inicializacaoTentada;
+        private static bool estadoSelecaoConhecido;
         private static bool selecaoAtiva;
-        private static string ultimoAviso;
-        private static bool componenteEncontrado;
+        private static int quadros;
+        private static int hooksInstalados;
+
+        internal static void Inicializar()
+        {
+            if (inicializacaoTentada) return;
+            inicializacaoTentada = true;
+
+            try
+            {
+                harmony = new Harmony(IdHarmony);
+                int tiposEncontrados = 0;
+                int novosHooks = 0;
+                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+                for (int a = 0; a < assemblies.Length; a++)
+                {
+                    Type[] tipos = ObterTiposCarregados(assemblies[a]);
+                    for (int t = 0; t < tipos.Length; t++)
+                    {
+                        Type tipo = tipos[t];
+                        if (tipo == null || !EhTipoDeControleNPC(tipo.Name)) continue;
+                        tiposEncontrados++;
+
+                        MethodInfo update;
+                        try
+                        {
+                            update = tipo.GetMethod("Update", Instancia, null, Type.EmptyTypes, null);
+                        }
+                        catch (Exception ex)
+                        {
+                            RegistrarAviso("NPC_CONTROL_UPDATE_LOOKUP_FAILED: " + tipo.FullName + " | " + ex.GetType().Name);
+                            continue;
+                        }
+
+                        if (update == null)
+                        {
+                            RegistrarAviso("NPC_CONTROL_UPDATE_NOT_FOUND: " + tipo.FullName);
+                            continue;
+                        }
+
+                        if (metodosComHook.Contains(update)) continue;
+                        try
+                        {
+                            MethodInfo postfix = typeof(ObservatorioBotaoPainelNPC).GetMethod(
+                                "DepoisDoUpdateDoPainel", Estatico);
+                            harmony.Patch(update, null, new HarmonyMethod(postfix));
+                            metodosComHook.Add(update);
+                            novosHooks++;
+                            hooksInstalados++;
+                            Debug.LogWarning("[Observatorio] NPC_CONTROL_HOOK_INSTALLED: " + tipo.FullName + ".Update()");
+                        }
+                        catch (Exception ex)
+                        {
+                            RegistrarAviso("NPC_CONTROL_HOOK_FAILED: " + tipo.FullName + " | " + ex.GetType().Name + ": " + ex.Message);
+                        }
+                    }
+                }
+
+                Debug.LogWarning("[Observatorio] NPC_CONTROL_HOOK_SUMMARY: assemblies=" + assemblies.Length
+                    + " | tipos=" + tiposEncontrados + " | novos_hooks=" + novosHooks
+                    + " | total_hooks=" + hooksInstalados + " | build=0.6.3-dev");
+
+                if (tiposEncontrados == 0)
+                    RegistrarAviso("NPC_CONTROL_TYPE_NOT_FOUND: nenhuma classe SelectedPowerTab*Buttons foi encontrada nas assemblies carregadas.");
+                else if (hooksInstalados == 0)
+                    RegistrarAviso("NPC_CONTROL_NO_UPDATE_HOOK: as classes de controle existem, mas nenhum Update foi conectado.");
+            }
+            catch (Exception ex)
+            {
+                RegistrarAviso("NPC_CONTROL_INIT_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private static Type[] ObterTiposCarregados(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                List<Type> recuperados = new List<Type>();
+                Type[] tipos = ex.Types;
+                for (int i = 0; i < tipos.Length; i++)
+                    if (tipos[i] != null) recuperados.Add(tipos[i]);
+                return recuperados.ToArray();
+            }
+            catch
+            {
+                return new Type[0];
+            }
+        }
+
+        private static bool EhTipoDeControleNPC(string nome)
+        {
+            if (string.IsNullOrEmpty(nome)) return false;
+            if (string.Equals(nome, "SelectedPowerTabButtons", StringComparison.Ordinal)) return true;
+            if (string.Equals(nome, "SelectedPowerTabTopButtons", StringComparison.Ordinal)) return true;
+            return nome.StartsWith("SelectedPowerTab", StringComparison.Ordinal)
+                && nome.EndsWith("Buttons", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Chamado depois do Update do painel real, não por um Canvas genérico da tela.
+        private static void DepoisDoUpdateDoPainel(object __instance)
+        {
+            try
+            {
+                Component painel = __instance as Component;
+                if (painel == null || painel.gameObject == null) return;
+
+                AtualizarEstadoSelecao();
+                TentarInserirNoPainel(painel);
+            }
+            catch (Exception ex)
+            {
+                RegistrarAviso("NPC_CONTROL_POSTFIX_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
 
         internal static void Atualizar()
         {
             quadros++;
-
-            if (quadros % 5 == 0)
+            if (!inicializacaoTentada || (hooksInstalados == 0 && quadros % 120 == 0))
             {
-                selecaoAtiva = ExisteSelecaoControlavel();
+                inicializacaoTentada = false;
+                Inicializar();
+            }
+
+            if (quadros % 4 == 0)
+            {
+                AtualizarEstadoSelecao();
                 AtualizarVisibilidade();
             }
 
-            if (quadros % IntervaloBusca == 0)
-            {
-                ProcurarPainel();
-            }
+            // Fallback caso a versão do jogo não chame o método esperado pelo hook.
+            if (quadros % 90 == 0 && !ExisteBotaoRegistrado())
+                ProcurarPainelNaCena();
         }
 
-        private static void AtualizarVisibilidade()
+        private static void AtualizarEstadoSelecao()
         {
-            for (int i = registros.Count - 1; i >= 0; i--)
-            {
-                Registro item = registros[i];
-                if (item == null || item.Botao == null || item.Pai == null)
-                {
-                    registros.RemoveAt(i);
-                    continue;
-                }
-
-                bool visivel = selecaoAtiva && item.Pai.activeInHierarchy;
-                item.Botao.SetActive(visivel);
-            }
+            bool unidadeOk;
+            bool unidade = LerFlagEstatica("SelectedUnit", "isSet", out unidadeOk);
+            bool objetoOk;
+            bool objeto = LerFlagEstatica("SelectedObjects", "isNanoObjectSet", out objetoOk);
+            estadoSelecaoConhecido = unidadeOk || objetoOk;
+            selecaoAtiva = (unidadeOk && unidade) || (objetoOk && objeto);
         }
 
-        private static bool ExisteSelecaoControlavel()
+        private static bool LerFlagEstatica(string nomeTipo, string nomeMetodo, out bool conhecido)
         {
-            // Usa a mesma condição geral do painel nativo de seleção do jogo.
-            // Reflexão evita acoplar a compilação a uma variação de nomes da classe de seleção.
-            bool unidade = LerFlagEstatica("SelectedUnit", "isSet");
-            if (unidade) return true;
-            return LerFlagEstatica("SelectedObjects", "isNanoObjectSet");
-        }
-
-        private static bool LerFlagEstatica(string nomeTipo, string nomeMetodo)
-        {
+            conhecido = false;
             try
             {
                 Type tipo = ResolverTipo(nomeTipo);
                 if (tipo == null) return false;
-
-                MethodInfo metodo = tipo.GetMethod(
-                    nomeMetodo,
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
-                    null,
-                    Type.EmptyTypes,
-                    null);
+                MethodInfo metodo = tipo.GetMethod(nomeMetodo, Estatico, null, Type.EmptyTypes, null);
                 if (metodo == null) return false;
 
                 object valor = metodo.Invoke(null, null);
-                return valor is bool && (bool)valor;
+                if (!(valor is bool)) return false;
+                conhecido = true;
+                return (bool)valor;
             }
             catch (Exception ex)
             {
-                RegistrarAviso("SELECAO_REFLECTION_FALHOU: " + nomeTipo + "." + nomeMetodo + " | " + ex.GetType().Name);
+                RegistrarAviso("NPC_SELECTION_READ_FAILED: " + nomeTipo + "." + nomeMetodo + " | " + ex.GetType().Name);
                 return false;
             }
         }
 
         private static Type ResolverTipo(string nomeTipo)
         {
-            Type tipo = Type.GetType(nomeTipo + ", Assembly-CSharp");
-            if (tipo != null) return tipo;
-
             Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
             for (int i = 0; i < assemblies.Length; i++)
             {
                 try
                 {
-                    tipo = assemblies[i].GetType(nomeTipo, false);
+                    Type tipo = assemblies[i].GetType(nomeTipo, false);
                     if (tipo != null) return tipo;
                 }
                 catch { }
@@ -494,21 +603,51 @@ namespace ObservatorioDosReinos
             return null;
         }
 
-        private static void ProcurarPainel()
+        private static bool ExisteBotaoRegistrado()
         {
-            string[] candidatos = { "SelectedPowerTabButtons", "SelectedPowerTabTopButtons" };
-            bool encontrouAlvo = false;
-
-            for (int t = 0; t < candidatos.Length; t++)
+            for (int i = registros.Count - 1; i >= 0; i--)
             {
-                Type tipo = ResolverTipo(candidatos[t]);
-                if (tipo == null) continue;
+                if (registros[i] != null && registros[i].Botao != null && registros[i].Pai != null)
+                    return true;
+                registros.RemoveAt(i);
+            }
+            return false;
+        }
 
+        private static void ProcurarPainelNaCena()
+        {
+            int encontrados = 0;
+            CanvasMain main = CanvasMain.instance;
+
+            if (main != null && main.canvas_ui != null)
+            {
+                try
+                {
+                    MonoBehaviour[] componentes = main.canvas_ui.GetComponentsInChildren<MonoBehaviour>(true);
+                    for (int i = 0; i < componentes.Length; i++)
+                    {
+                        Component componente = componentes[i] as Component;
+                        if (componente == null || !EhTipoDeControleNPC(componente.GetType().Name)) continue;
+                        encontrados++;
+                        TentarInserirNoPainel(componente);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    RegistrarAviso("NPC_CONTROL_CANVAS_SCAN_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+                }
+            }
+
+            string[] nomes = { "SelectedPowerTabButtons", "SelectedPowerTabTopButtons" };
+            for (int n = 0; n < nomes.Length; n++)
+            {
+                Type tipo = ResolverTipo(nomes[n]);
+                if (tipo == null) continue;
                 UnityEngine.Object[] objetos;
                 try { objetos = Resources.FindObjectsOfTypeAll(tipo); }
                 catch (Exception ex)
                 {
-                    RegistrarAviso("PAINEL_NPC_BUSCA_FALHOU: " + ex.GetType().Name);
+                    RegistrarAviso("NPC_CONTROL_RESOURCE_SCAN_FAILED: " + ex.GetType().Name);
                     continue;
                 }
 
@@ -516,110 +655,68 @@ namespace ObservatorioDosReinos
                 {
                     Component componente = objetos[i] as Component;
                     if (componente == null || componente.gameObject == null) continue;
-                    try { if (!componente.gameObject.scene.IsValid()) continue; }
-                    catch { continue; }
-
-                    GameObject botaoReferencia;
-                    string campo;
-                    if (!LocalizarBotaoReferencia(componente, tipo, out botaoReferencia, out campo))
-                        continue;
-
-                    encontrouAlvo = true;
-                    if (InserirBotao(componente, botaoReferencia, campo))
-                        componenteEncontrado = true;
-                }
-            }
-
-            if (encontrouAlvo)
-            {
-                if (!componenteEncontrado)
-                    RegistrarAviso("PAINEL_NPC_ENCONTRADO_MAS_BOTAO_NAO_INSERIDO");
-            }
-            else
-            {
-                RegistrarAviso("PAINEL_NPC_AGUARDANDO: SelectedPowerTabButtons/SelectedPowerTabTopButtons ainda não encontrado na cena.");
-            }
-        }
-
-        private static bool LocalizarBotaoReferencia(Component componente, Type tipo, out GameObject referencia, out string nomeCampo)
-        {
-            referencia = null;
-            nomeCampo = null;
-            string[] prioritarios = {
-                "possession", "possess", "spectate", "open_window", "openwindow", "open_main", "openmain", "main_info", "button_info"
-            };
-
-            for (int p = 0; p < prioritarios.Length; p++)
-            {
-                for (Type atual = tipo; atual != null; atual = atual.BaseType)
-                {
-                    FieldInfo[] campos = atual.GetFields(
-                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-                    for (int i = 0; i < campos.Length; i++)
+                    try
                     {
-                        if (campos[i].Name.IndexOf(prioritarios[p], StringComparison.OrdinalIgnoreCase) < 0)
-                            continue;
-
-                        GameObject go = ConverterParaGameObject(campos[i].GetValue(componente));
-                        if (go == null || go == componente.gameObject) continue;
-                        referencia = go;
-                        nomeCampo = campos[i].Name;
-                        return true;
+                        // Não alterar prefabs de recursos: só objetos ligados a uma cena carregada.
+                        if (!componente.gameObject.scene.IsValid()) continue;
                     }
+                    catch { continue; }
+                    encontrados++;
+                    TentarInserirNoPainel(componente);
                 }
             }
 
-            // Fallback para revisões do jogo que renomeiem os campos serializados.
-            Button[] botoes = componente.GetComponentsInChildren<Button>(true);
-            for (int i = 0; i < botoes.Length; i++)
+            if (encontrados == 0)
             {
-                if (botoes[i] == null || botoes[i].gameObject == null) continue;
-                string nome = botoes[i].gameObject.name.ToLowerInvariant();
-                if (nome.Contains("possession") || nome.Contains("possess") ||
-                    nome.Contains("spectate") || nome.Contains("open_window") ||
-                    nome.Contains("open_main") || nome.Contains("info"))
-                {
-                    referencia = botoes[i].gameObject;
-                    nomeCampo = "child:" + botoes[i].gameObject.name;
-                    return true;
-                }
+                RegistrarAviso("NPC_CONTROL_PANEL_NOT_FOUND: nenhum componente de controle foi localizado; CanvasMain="
+                    + (main != null) + " | canvas_ui=" + (main != null && main.canvas_ui != null)
+                    + " | hooks=" + hooksInstalados);
             }
-
-            return false;
         }
 
-        private static GameObject ConverterParaGameObject(object valor)
+        private static bool TentarInserirNoPainel(Component painel)
         {
-            GameObject go = valor as GameObject;
-            if (go != null) return go;
-            Component componente = valor as Component;
-            return componente == null ? null : componente.gameObject;
-        }
+            if (painel == null || painel.gameObject == null || !EhTipoDeControleNPC(painel.GetType().Name))
+                return false;
 
-        private static bool InserirBotao(Component painel, GameObject referencia, string nomeCampo)
-        {
-            Transform pai = referencia.transform.parent;
+            GameObject referencia;
+            string nomeCampo;
+            LocalizarBotaoReferencia(painel, out referencia, out nomeCampo);
+
+            Transform pai = referencia != null && referencia.transform.parent != null
+                ? referencia.transform.parent
+                : painel.transform;
             if (pai == null) return false;
 
             Transform existente = pai.Find(IdBotao);
             if (existente != null)
             {
-                RegistrarRegistro(existente.gameObject, pai.gameObject);
+                RegistrarRegistro(existente.gameObject, pai.gameObject, painel);
                 return true;
             }
 
+            // Mesmo se a versão renomear os campos dos botões, GOV fica dentro do componente
+            // específico dos controles de NPC, com um fallback visível na raiz desse painel.
+            if (referencia == null)
+            {
+                nomeCampo = "fallback:raiz-do-painel";
+                RegistrarAviso("NPC_CONTROL_REFERENCE_FALLBACK: " + painel.GetType().FullName
+                    + " | " + ResumirBotoes(painel));
+            }
+
+            GameObject novo = null;
             try
             {
-                RectTransform modelo = referencia.GetComponent<RectTransform>();
-                float largura = modelo == null ? 54f : modelo.rect.width;
-                float altura = modelo == null ? 38f : modelo.rect.height;
-                if (largura < 24f) largura = modelo == null ? 54f : modelo.sizeDelta.x;
-                if (altura < 24f) altura = modelo == null ? 38f : modelo.sizeDelta.y;
-                if (largura < 24f) largura = 54f;
-                if (altura < 24f) altura = 38f;
+                RectTransform modelo = referencia == null ? null : referencia.GetComponent<RectTransform>();
+                float largura = modelo == null ? 66f : modelo.rect.width;
+                float altura = modelo == null ? 40f : modelo.rect.height;
+                if (largura < 24f) largura = modelo == null ? 66f : modelo.sizeDelta.x;
+                if (altura < 24f) altura = modelo == null ? 40f : modelo.sizeDelta.y;
+                if (largura < 24f) largura = 66f;
+                if (altura < 24f) altura = 40f;
 
-                GameObject novo = new GameObject(
-                    IdBotao, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+                novo = new GameObject(IdBotao,
+                    typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
                 novo.transform.SetParent(pai, false);
 
                 RectTransform rect = novo.GetComponent<RectTransform>();
@@ -631,33 +728,41 @@ namespace ObservatorioDosReinos
                     rect.localScale = modelo.localScale;
                     rect.sizeDelta = modelo.sizeDelta;
                 }
-                rect.sizeDelta = new Vector2(Math.Max(largura, 52f), altura);
+                else
+                {
+                    rect.anchorMin = new Vector2(1f, 0.5f);
+                    rect.anchorMax = new Vector2(1f, 0.5f);
+                    rect.pivot = new Vector2(1f, 0.5f);
+                    rect.anchoredPosition = new Vector2(-18f, 0f);
+                }
+                rect.sizeDelta = new Vector2(Math.Max(largura, 60f), altura);
 
-                Image image = novo.GetComponent<Image>();
-                Image imagemModelo = referencia.GetComponent<Image>();
-                if (imagemModelo == null) imagemModelo = referencia.GetComponentInChildren<Image>(true);
+                Image imagem = novo.GetComponent<Image>();
+                Image imagemModelo = referencia == null ? null : referencia.GetComponent<Image>();
+                if (imagemModelo == null && referencia != null)
+                    imagemModelo = referencia.GetComponentInChildren<Image>(true);
                 if (imagemModelo != null)
                 {
-                    image.sprite = imagemModelo.sprite;
-                    image.type = imagemModelo.type;
-                    image.material = imagemModelo.material;
-                    image.preserveAspect = imagemModelo.preserveAspect;
-                    image.color = imagemModelo.color;
+                    imagem.sprite = imagemModelo.sprite;
+                    imagem.type = imagemModelo.type;
+                    imagem.material = imagemModelo.material;
+                    imagem.preserveAspect = imagemModelo.preserveAspect;
+                    imagem.color = imagemModelo.color;
                 }
                 else
                 {
-                    image.color = new Color(0.16f, 0.32f, 0.19f, 0.98f);
+                    imagem.color = new Color(0.13f, 0.30f, 0.17f, 1f);
                 }
 
                 Button button = novo.GetComponent<Button>();
-                button.targetGraphic = image;
+                button.targetGraphic = imagem;
                 button.transition = Selectable.Transition.ColorTint;
-                ColorBlock colors = button.colors;
-                colors.normalColor = image.color;
-                colors.highlightedColor = new Color(0.35f, 0.50f, 0.32f, 1f);
-                colors.pressedColor = new Color(0.68f, 0.58f, 0.32f, 1f);
-                button.colors = colors;
-                button.onClick.AddListener(delegate { ObservatorioJanelaNativa.Abrir(); });
+                ColorBlock cores = button.colors;
+                cores.normalColor = imagem.color;
+                cores.highlightedColor = new Color(0.32f, 0.48f, 0.31f, 1f);
+                cores.pressedColor = new Color(0.68f, 0.58f, 0.32f, 1f);
+                button.colors = cores;
+                button.onClick.AddListener(AbrirObservatorio);
 
                 GameObject textoObj = new GameObject("Texto_GOV", typeof(RectTransform), typeof(Text));
                 textoObj.transform.SetParent(novo.transform, false);
@@ -668,12 +773,23 @@ namespace ObservatorioDosReinos
                 textoRect.offsetMax = new Vector2(-2f, -1f);
 
                 Text texto = textoObj.GetComponent<Text>();
-                texto.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-                if (texto.font == null) texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                texto.fontSize = 12;
+                Text textoModelo = referencia == null ? null : referencia.GetComponentInChildren<Text>(true);
+                try
+                {
+                    texto.font = textoModelo != null
+                        ? textoModelo.font
+                        : Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    if (texto.font == null)
+                        texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                }
+                catch (Exception fontEx)
+                {
+                    RegistrarAviso("NPC_CONTROL_FONT_FALLBACK: " + fontEx.GetType().Name);
+                }
+                texto.fontSize = textoModelo == null ? 12 : Math.Max(10, textoModelo.fontSize - 2);
                 texto.fontStyle = FontStyle.Bold;
                 texto.alignment = TextAnchor.MiddleCenter;
-                texto.color = new Color(1f, 0.88f, 0.38f, 1f);
+                texto.color = new Color(1f, 0.91f, 0.53f, 1f);
                 texto.text = "GOV";
                 texto.supportRichText = false;
 
@@ -681,48 +797,193 @@ namespace ObservatorioDosReinos
                 VerticalLayoutGroup vertical = pai.GetComponent<VerticalLayoutGroup>();
                 if (horizontal != null || vertical != null)
                 {
-                    LayoutElement le = novo.GetComponent<LayoutElement>();
-                    le.minWidth = Math.Max(largura, 52f);
-                    le.preferredWidth = Math.Max(largura, 52f);
-                    le.minHeight = altura;
-                    le.preferredHeight = altura;
-                    novo.transform.SetSiblingIndex(referencia.transform.GetSiblingIndex() + 1);
+                    LayoutElement layout = novo.GetComponent<LayoutElement>();
+                    layout.minWidth = Math.Max(largura, 60f);
+                    layout.preferredWidth = Math.Max(largura, 60f);
+                    layout.minHeight = altura;
+                    layout.preferredHeight = altura;
+                    if (referencia != null)
+                        novo.transform.SetSiblingIndex(referencia.transform.GetSiblingIndex() + 1);
+                    else
+                        novo.transform.SetAsLastSibling();
+                }
+                else if (modelo != null)
+                {
+                    rect.anchoredPosition = modelo.anchoredPosition + new Vector2(largura + 6f, 0f);
+                    novo.transform.SetAsLastSibling();
                 }
                 else
                 {
-                    if (modelo != null)
-                        rect.anchoredPosition = modelo.anchoredPosition + new Vector2(largura + 6f, 0f);
-                    else
-                        rect.anchoredPosition = new Vector2(largura + 6f, 0f);
                     novo.transform.SetAsLastSibling();
                 }
 
-                novo.SetActive(selecaoAtiva && pai.gameObject.activeInHierarchy);
-                RegistrarRegistro(novo, pai.gameObject);
-                Debug.Log("[Observatorio] NATIVE_CONTROL_BUTTON_CREATED: GOV | painel=" + painel.GetType().Name
-                    + " | referência=" + nomeCampo + " | pai=" + pai.gameObject.name);
+                bool contextoAtivo = estadoSelecaoConhecido
+                    ? selecaoAtiva
+                    : painel.gameObject.activeInHierarchy;
+                novo.SetActive(contextoAtivo && painel.gameObject.activeInHierarchy && pai.gameObject.activeInHierarchy);
+                RegistrarRegistro(novo, pai.gameObject, painel);
+
+                Debug.LogWarning("[Observatorio] NATIVE_CONTROL_BUTTON_CREATED: GOV | painel=" + painel.GetType().FullName
+                    + " | referência=" + nomeCampo + " | pai=" + pai.gameObject.name
+                    + " | seleção_conhecida=" + estadoSelecaoConhecido + " | seleção_ativa=" + selecaoAtiva
+                    + " | parent_active=" + pai.gameObject.activeInHierarchy);
                 return true;
             }
             catch (Exception ex)
             {
-                RegistrarAviso("NATIVE_CONTROL_BUTTON_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+                if (novo != null) UnityEngine.Object.Destroy(novo);
+                RegistrarAviso("NATIVE_CONTROL_BUTTON_FAILED: " + painel.GetType().FullName
+                    + " | " + ex.GetType().Name + ": " + ex.Message + " | " + ResumirBotoes(painel));
                 return false;
             }
         }
 
-        private static void RegistrarRegistro(GameObject botao, GameObject pai)
+        private static void LocalizarBotaoReferencia(Component painel, out GameObject referencia, out string nomeCampo)
+        {
+            referencia = null;
+            nomeCampo = null;
+            Type tipo = painel.GetType();
+            string[] prioritarios =
+            {
+                "possession", "possess", "spectate", "open_window", "openwindow",
+                "open_main", "openmain", "main_info", "button_info", "favorite"
+            };
+
+            for (int p = 0; p < prioritarios.Length; p++)
+            {
+                for (Type atual = tipo; atual != null; atual = atual.BaseType)
+                {
+                    FieldInfo[] campos;
+                    try { campos = atual.GetFields(Instancia | BindingFlags.DeclaredOnly); }
+                    catch { continue; }
+
+                    for (int i = 0; i < campos.Length; i++)
+                    {
+                        if (campos[i].Name.IndexOf(prioritarios[p], StringComparison.OrdinalIgnoreCase) < 0)
+                            continue;
+                        try
+                        {
+                            GameObject go = ConverterParaGameObject(campos[i].GetValue(painel));
+                            if (go == null || go == painel.gameObject) continue;
+                            referencia = go;
+                            nomeCampo = campos[i].Name;
+                            return;
+                        }
+                        catch { }
+                    }
+                }
+            }
+
+            Button[] botoes;
+            try { botoes = painel.GetComponentsInChildren<Button>(true); }
+            catch { botoes = new Button[0]; }
+
+            for (int i = 0; i < botoes.Length; i++)
+            {
+                if (botoes[i] == null || botoes[i].gameObject == null) continue;
+                string nome = botoes[i].gameObject.name.ToLowerInvariant();
+                if (nome.Contains("possession") || nome.Contains("possess") ||
+                    nome.Contains("spectate") || nome.Contains("open_window") ||
+                    nome.Contains("open_main") || nome.Contains("info"))
+                {
+                    referencia = botoes[i].gameObject;
+                    nomeCampo = "child:" + botoes[i].gameObject.name;
+                    return;
+                }
+            }
+
+            // Se os campos foram renomeados, use outra ação clicável do mesmo painel como âncora.
+            for (int i = 0; i < botoes.Length; i++)
+            {
+                if (botoes[i] == null || botoes[i].gameObject == null) continue;
+                if (botoes[i].gameObject.name == IdBotao) continue;
+                referencia = botoes[i].gameObject;
+                nomeCampo = "fallback:first-button:" + botoes[i].gameObject.name;
+                return;
+            }
+        }
+
+        private static GameObject ConverterParaGameObject(object valor)
+        {
+            GameObject go = valor as GameObject;
+            if (go != null) return go;
+            Component componente = valor as Component;
+            return componente == null ? null : componente.gameObject;
+        }
+
+        private static void RegistrarRegistro(GameObject botao, GameObject pai, Component painel)
         {
             for (int i = 0; i < registros.Count; i++)
             {
-                if (registros[i] != null && registros[i].Botao == botao) return;
+                if (registros[i] != null && registros[i].Botao == botao)
+                {
+                    registros[i].Pai = pai;
+                    registros[i].Painel = painel;
+                    return;
+                }
             }
-            registros.Add(new Registro { Botao = botao, Pai = pai });
+            registros.Add(new Registro { Botao = botao, Pai = pai, Painel = painel });
+        }
+
+        private static void AtualizarVisibilidade()
+        {
+            for (int i = registros.Count - 1; i >= 0; i--)
+            {
+                Registro item = registros[i];
+                if (item == null || item.Botao == null || item.Pai == null || item.Painel == null)
+                {
+                    registros.RemoveAt(i);
+                    continue;
+                }
+
+                bool contextoAtivo = estadoSelecaoConhecido
+                    ? selecaoAtiva
+                    : item.Painel.gameObject.activeInHierarchy;
+                bool ativo = contextoAtivo
+                    && item.Painel.gameObject.activeInHierarchy
+                    && item.Pai.activeInHierarchy;
+                if (item.Botao.activeInHierarchy != ativo)
+                    item.Botao.SetActive(ativo);
+            }
+        }
+
+        private static string ResumirBotoes(Component painel)
+        {
+            try
+            {
+                Button[] botoes = painel.GetComponentsInChildren<Button>(true);
+                string resumo = "buttons=" + botoes.Length;
+                int limite = Math.Min(botoes.Length, 8);
+                for (int i = 0; i < limite; i++)
+                {
+                    if (botoes[i] == null || botoes[i].gameObject == null) continue;
+                    resumo += " | " + botoes[i].gameObject.name;
+                }
+                if (botoes.Length > limite) resumo += " | +" + (botoes.Length - limite);
+                return resumo;
+            }
+            catch (Exception ex)
+            {
+                return "hierarchy_error=" + ex.GetType().Name;
+            }
+        }
+
+        private static void AbrirObservatorio()
+        {
+            try
+            {
+                Debug.LogWarning("[Observatorio] NPC_CONTROL_BUTTON_CLICKED: abrindo janela administrativa.");
+                ObservatorioJanelaNativa.Abrir();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[Observatorio] NPC_CONTROL_BUTTON_OPEN_FAILED: " + ex.GetType().Name + ": " + ex.Message);
+            }
         }
 
         private static void RegistrarAviso(string mensagem)
         {
-            if (ultimoAviso == mensagem) return;
-            ultimoAviso = mensagem;
+            if (string.IsNullOrEmpty(mensagem) || !avisosJaEmitidos.Add(mensagem)) return;
             Debug.LogWarning("[Observatorio] " + mensagem);
         }
     }
@@ -816,6 +1077,9 @@ namespace ObservatorioDosReinos
             PoliticaDoReino a=estadoPolitico.RegistrarReino("diagnostico-a","Reino de teste A");
             PoliticaDoReino b=estadoPolitico.RegistrarReino("diagnostico-b","Reino de teste B");
             RelacaoDiplomatica rel=estadoPolitico.ObterOuCriarRelacao(a.Id,b.Id);rel.DefinirTipo(TipoRelacaoDiplomatica.Comercio);rel.AjustarOpiniao(10);
+            LogInfo("Observatorio dos Reinos carregado. Build=0.6.3-dev.");
+            ObservatorioBotaoPainelNPC.Inicializar();
+            LogInfo("Integração com controles de NPC iniciada; consulte NPC_CONTROL_HOOK_SUMMARY.");
             LogInfo("Observatorio dos Reinos carregado. Sistemas politicos locais inicializados.");
             LogInfo("Autoteste politico: reinos="+estadoPolitico.QuantidadeDeReinos+", relacoes="+estadoPolitico.QuantidadeDeRelacoes+", tipo="+rel.Tipo+", opiniao="+rel.Opiniao+".");
             LeitorSeguroDoMundo.Resumo mundo=LeitorSeguroDoMundo.Inspecionar();
