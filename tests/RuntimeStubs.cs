@@ -45,12 +45,20 @@ public static class SelectedObjects
     public static bool isNanoObjectSet() { return false; }
 }
 
+public sealed class TestModDeclaration
+{
+    public string Name { get { return "Observatorio dos Reinos — Runtime Proof"; } }
+    public string UID { get { return "com.jin27012007.observatoriodosreinos"; } }
+    public string FolderPath { get { return "/Mods/ObservatorioRuntimeProof"; } }
+}
+
 namespace NeoModLoader.api
 {
     public abstract class BasicMod<T> : MonoBehaviour where T : BasicMod<T>
     {
         public static readonly List<string> CapturedLogs = new List<string>();
         protected abstract void OnModLoad();
+        public TestModDeclaration GetDeclaration() { return new TestModDeclaration(); }
         public static void LogInfo(string message) { CapturedLogs.Add(message); }
         public void InvokeOnModLoadForTest() { OnModLoad(); }
     }
