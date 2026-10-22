@@ -579,6 +579,7 @@ namespace ObservatorioDosReinos
 
                 ConstructorInfo harmonyCtor=harmonyType.GetConstructor(new Type[]{typeof(string)});
                 if(harmonyCtor==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: construtor Harmony(string) ausente.");return;}
+                Debug.Log("[Observatorio] Runtime assembly fingerprint: StatsWindow="+IdentificarAssembly(statsType)+"; PowerTabController="+IdentificarAssembly(powerType)+"; Harmony="+IdentificarAssembly(harmonyType));
                 object harmony=harmonyCtor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusguard"});
                 MethodInfo[] harmonyMethods=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
                 MethodInfo patch=EncontrarHarmonyPatch(harmonyMethods);
@@ -636,6 +637,16 @@ namespace ObservatorioDosReinos
                     : "[Observatorio] STATUS_PATCH_NOT_INSTALLED: nenhum patch compatível foi aplicado.");
             }
             catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
+        }
+
+        private static string IdentificarAssembly(Type tipo)
+        {
+            if(tipo==null)return "(tipo ausente)";
+            try
+            {
+                return tipo.Assembly.FullName+" | MVID="+tipo.Module.ModuleVersionId.ToString("D");
+            }
+            catch(Exception ex){return tipo.FullName+" | MVID indisponivel: "+ex.GetType().Name;}
         }
 
         private static Type BuscarTipoCarregado(string nomeTipo, string nomeQualificado)
