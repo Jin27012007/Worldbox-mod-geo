@@ -1,33 +1,27 @@
 # Observatório dos Reinos — WorldBox Android
 
-Mod original 2D para estender o controle nativo de personagens: controlar um rei/rainha deverá habilitar ferramentas de governo para seu reino. O projeto busca usar a identidade visual padrão do WorldBox.
+Mod original 2D para expandir o controle nativo de personagens com governo e diplomacia. Alvo informado pelo usuário: WorldBox Android 0.51.4 com NeoModLoader.
 
-## Versão de desenvolvimento
+## `0.5.0-dev` — UI e recuperação de status
+- Troca o protótipo `OnGUI` por uma interface de Canvas/Unity UI (deve ser mais confiável em touch e em retrato).
+- Painel com Governo, Diplomacia, Reuniões e RPG, campos de texto, toggles, rolagem e botões de rascunho.
+- Tenta inserir um botão `GOV` imediatamente acima do botão nativo que abre as informações do personagem/reino, reutilizando a imagem do botão original. Se não localizar essa hierarquia, há um botão reserva `GOVERNO` no alto da tela.
+- Tenta reutilizar o sprite de fundo da janela nativa para manter a aparência do jogo.
+- Tenta interceptar somente a `NullReferenceException` conhecida no `StatsWindow.OnEnable` quando a stack passa por `showWhoIsSelected`/`showWorldTipSelected`; fecha a janela parcial e abre o painel alternativo.
 
-`0.4.0-dev` acrescenta um protótipo visual de administração, com botão `Governo` e quatro abas: Governo, Diplomacia, Reuniões e RPG. Inclui caixas de texto, toggles e botões que deixam rascunhos/avisos locais. A janela calcula sua posição e tamanho usando `Screen.width` e `Screen.height`, com rolagem para telas menores.
+## Diagnóstico do erro conhecido
+A captura do usuário mostrou `NullReferenceException` durante `PowerTabController.showWhoIsSelected(String, Boolean)` chamado na abertura da `StatsWindow` pelo botão de informações. Isso localiza a falha no caminho da UI de status nativa. A assembly pública extraída do ZIP que recebemos não contém esses mesmos nomes (ela usa `showWorldTipSelected` e `SelectedPowerTabTopButtons`), então o objeto exato nulo na build executada ainda precisa ser confirmado. O patch de `0.5.0-dev` é uma recuperação direcionada da UI, não prova de correção da causa interna.
 
-## Estado atual
-
-- O usuário confirmou que o mod e os diagnósticos anteriores carregam no Android.
-- O status nativo de reino fica parcialmente cortado quando acionado durante o controle de um rei em orientação vertical. A causa exata ainda não foi isolada.
-- O novo overlay é uma alternativa responsiva de interface para testar; não modifica diretamente a UI nativa do status do reino.
-- A UI usa Unity IMGUI e a skin de Unity com cores aproximadas da paleta escura/dourada do WorldBox. Ainda não foi compilada ou testada em runtime no aparelho.
-- As opções são demonstrativas e não alteram dados de reinos, cidades, relações, guerras ou unidades.
-- A detecção do rei controlado e a leitura de informações reais do reino continuam pendentes.
-
-## Teste desta versão
-
+## Como testar
 1. Faça backup da pasta atual do mod.
-2. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos` e atualize os arquivos do Observatório dos Reinos.
-3. Abra o WorldBox e veja se aparece o botão `Governo`.
-4. Toque nele, alterne entre as quatro abas, digite nos campos e role o conteúdo.
-5. Teste em orientação vertical e horizontal. O painel deve caber na tela; o botão deve abrir/fechar a janela.
-6. Se o mod não carregar, envie a mensagem completa do NML. Se carregar, envie uma captura da janela aberta e diga se o toque nos controles funciona.
+2. Baixe o ZIP do ramo `scaffold/observatorio-dos-reinos` e substitua apenas os arquivos do Observatório dos Reinos.
+3. Abra um mundo, espere surgir o botão `GOV` acima do botão de informações do personagem/reino. Se não for possível localizar a barra nativa, procure o botão reserva `GOVERNO` no canto superior esquerdo.
+4. Toque no botão, teste as quatro abas, campos de texto, toggles e botões em orientação vertical e horizontal.
+5. Teste o botão nativo de status do reino novamente. Se a exceção for interceptada, a janela parcial deve fechar e o painel do Observatório deve abrir no lugar.
+6. Se nada aparecer, envie as linhas de log após `Observatorio dos Reinos carregado`. Se o erro persistir, envie a stack trace completa.
 
-## Próximas etapas
-1. Corrigir o layout do overlay com base no teste Android.
-2. Identificar a API de personagem controlado e sua relação com rei/rainha, reino e cidade na build 0.51.4.
-3. Exibir dados reais no painel somente leitura.
-4. Conectar ações administrativas e diplomáticas em pequenas etapas, com validação em mundo descartável.
-
-Não incluir DLLs do jogo/loader nem reutilizar código ou assets de Worldfall. Informações públicas de 0.51.2 não são garantia de compatibilidade com 0.51.4.
+## Limites honestos
+- O código desta versão ainda precisa ser compilado/carregado e validado no Android.
+- As opções ainda são demonstrações locais; não alteram o mundo.
+- A detecção do governante possuído e a exibição de dados reais de reino/cidade continuam pendentes.
+- Não incluir DLLs do jogo/loader nem reutilizar código ou assets de Worldfall.
