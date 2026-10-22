@@ -36,6 +36,7 @@ internal static class BootstrapSmokeTest
 
         string logs = string.Join("\n", BasicMod<Main>.CapturedLogs.ToArray());
         Require(logs.Contains("BUILD=0.1.0-proof; STAGE=ON_MOD_LOAD"), "OnModLoad marker");
+        Require(logs.Contains("DECLARATION name=Observatorio dos Reinos — Runtime Proof; uid=com.jin27012007.observatoriodosreinos; folder=/Mods/ObservatorioRuntimeProof"), "actual loaded mod declaration and folder marker");
         Require(logs.Contains("STAGE=ON_ENABLE"), "OnEnable marker");
         Require(logs.Contains("STAGE=START_OK"), "Start marker");
         Require(logs.Contains("STAGE=UPDATE_OK"), "Update marker");
