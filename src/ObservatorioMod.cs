@@ -79,763 +79,374 @@ namespace ObservatorioDosReinos
     }
 
     /// <summary>
-    /// UI real de Canvas, nao IMGUI. O botao e inserido acima do botao nativo de
-    /// informacoes quando encontrado; se a hierarquia variar, existe um botao reserva.
+    /// Janela administrativa nativa do WorldBox, criada pelo ciclo AbstractWideWindow do NeoModLoader.
+    /// Não intercepta StatsWindow nem instala patches Harmony.
     /// </summary>
-    public sealed class MenuAdministracaoOverlay : MonoBehaviour
+    public sealed class ObservatorioJanelaNativa : AbstractWideWindow<ObservatorioJanelaNativa>
     {
-        private static MenuAdministracaoOverlay instancia;
-        private const string IdBotao = "Observatorio_Admin_Button";
-        private const string BuildTag = "0.5.9-dev";
-        private Canvas canvas;
-        private RectTransform painel;
-        private GameObject faixaAlternativa;
-        private Text textoEstado;
-        private InputField campoLei, campoTratado, campoReuniao, campoEvento;
-        private GameObject[] paginas = new GameObject[4];
-        private int aba;
-        private int frames;
-        private Button botaoNativoClonado;
-        private Component donoBotaoNativo;
-        private bool patchInstalado;
-        private bool patchInfoCompleto;
-        private bool patchStatsPrefixInstalado;
-        private bool patchStatsPostfixInstalado;
-        private bool patchStatsFinalizerInstalado;
-        private readonly HashSet<MethodBase> metodosInfoPatchados=new HashSet<MethodBase>();
-        private static bool abrindoStatus;
-        private Sprite spriteJanela;
+        public const string IdJanela = "observatorio_dos_reinos";
+
         private Font fonte;
-        private Text textoDiagnostico;
-        private RectTransform safeAreaRect;
-        private Rect lastSafeArea;
-        private bool tentouAvisarFalha;
+        private Text textoEstado;
+        private readonly GameObject[] paginas = new GameObject[4];
+        private InputField campoLei;
+        private InputField campoTratado;
+        private InputField campoReuniao;
+        private InputField campoEvento;
+        private bool protegerAldeias = true;
+        private bool incentivarComercio;
+        private bool ampliarRecrutamento;
+        private readonly List<string> propostasLeis = new List<string>();
+        private readonly List<string> propostasDiplomaticas = new List<string>();
+        private string ultimaPauta = "";
+        private string ultimoEvento = "";
 
-
-        public static void CriarSeNecessario()
+        public static void Inicializar()
         {
-            if (instancia != null) return;
-            MenuAdministracaoOverlay encontrada = FindObjectOfType<MenuAdministracaoOverlay>();
-            if (encontrada != null) { instancia=encontrada; return; }
-            GameObject raiz = new GameObject("ObservatorioDosReinos_RuntimeUI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            DontDestroyOnLoad(raiz);
-            instancia=raiz.AddComponent<MenuAdministracaoOverlay>();
+            if (Instance == null)
+            {
+                CreateAndInit(IdJanela, new Vector2(600f, 420f));
+                Debug.Log("[Observatorio] NATIVE_WINDOW_CREATED: janela registrada pelo NeoModLoader/AbstractWideWindow.");
+            }
+            ObservatorioAtalhoGov.TentarCriar();
         }
 
         public static void Abrir()
         {
-            CriarSeNecessario();
-            if (instancia != null) instancia.DefinirAberto(true);
+            if (Instance == null) Inicializar();
+            ScrollWindow.showWindow(IdJanela);
         }
 
-        public static void Fechar()
+        protected override void Init()
         {
-            if (instancia != null) instancia.DefinirAberto(false);
-        }
+            fonte = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (fonte == null) fonte = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        private void Awake()
-        {
-            if (instancia != null && instancia != this) { Destroy(gameObject); return; }
-            instancia=this;
-            DontDestroyOnLoad(gameObject);
+            if (ContentTransform == null) throw new InvalidOperationException("AbstractWideWindow não forneceu ContentTransform.");
+            PrepararLayoutVertical(ContentTransform, 8f, new RectOffset(12, 12, 10, 10));
 
-            // A protecao da janela deve ser tentada antes da construcao visual:
-            // uma falha do Canvas nao pode impedir o patch de status.
-            try { InstalarProtecaoStatus(); }
-            catch(Exception ex) { Debug.LogError("[Observatorio] Erro ao instalar protecao de status: "+ex.GetType().Name+": "+ex.Message); }
+            AdicionarTexto(ContentTransform, "OBSERVATÓRIO DOS REINOS", 20, true, 36f);
+            AdicionarTexto(ContentTransform,
+                "Painel administrativo experimental. As propostas ficam nesta sessão e ainda não modificam reinos nativos.",
+                13, false, 52f);
 
-            try
+            GameObject navegacao = new GameObject("Observatorio_Navegacao",
+                typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            navegacao.transform.SetParent(ContentTransform, false);
+            LayoutElement navLayout = navegacao.GetComponent<LayoutElement>();
+            navLayout.preferredHeight = 42f;
+            navLayout.minHeight = 42f;
+            HorizontalLayoutGroup navGroup = navegacao.GetComponent<HorizontalLayoutGroup>();
+            navGroup.spacing = 5f;
+            navGroup.childControlWidth = true;
+            navGroup.childForceExpandWidth = true;
+            navGroup.childControlHeight = true;
+            navGroup.childForceExpandHeight = true;
+
+            string[] nomesAbas = { "Governo", "Diplomacia", "Reuniões", "RPG" };
+            for (int i = 0; i < nomesAbas.Length; i++)
             {
-                fonte=Resources.GetBuiltinResource<Font>("Arial.ttf");
-                if(fonte==null)fonte=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                if(fonte==null)
+                int indice = i;
+                CriarBotao(navegacao.transform, nomesAbas[i], delegate { TrocarPagina(indice); });
+            }
+
+            paginas[0] = CriarPagina("Pagina_Governo");
+            AdicionarTexto(paginas[0].transform, "GOVERNO E POLÍTICAS", 16, true, 32f);
+            AdicionarTexto(paginas[0].transform, "As opções abaixo são guardadas pelo mod nesta sessão; não alteram a IA, os impostos ou as ações dos reinos do jogo.", 13, false, 58f);
+            CriarBotao(paginas[0].transform, TextoProtecao(), delegate
+            {
+                protegerAldeias = !protegerAldeias;
+                AtualizarTextoBotao("Proteção de aldeias", TextoProtecao());
+                AtualizarStatus("Preferência local atualizada: " + (protegerAldeias ? "proteção de aldeias ativada" : "proteção de aldeias desativada") + ".");
+            });
+            CriarBotao(paginas[0].transform, TextoComercio(), delegate
+            {
+                incentivarComercio = !incentivarComercio;
+                AtualizarTextoBotao("Incentivo ao comércio", TextoComercio());
+                AtualizarStatus("Preferência local de comércio " + (incentivarComercio ? "ativada" : "desativada") + ".");
+            });
+            CriarBotao(paginas[0].transform, TextoRecrutamento(), delegate
+            {
+                ampliarRecrutamento = !ampliarRecrutamento;
+                AtualizarTextoBotao("Recrutamento", TextoRecrutamento());
+                AtualizarStatus("Preferência local de recrutamento " + (ampliarRecrutamento ? "ampliada" : "normal") + ".");
+            });
+            campoLei = CriarCampo(paginas[0].transform, "Ex.: Proteger aldeias de ataques");
+            CriarBotao(paginas[0].transform, "Registrar proposta de lei", delegate
+            {
+                string proposta = TextoOuPadrao(campoLei, "Nova proposta de lei");
+                propostasLeis.Add(proposta);
+                AtualizarStatus("Proposta registrada nesta sessão (" + propostasLeis.Count + "): " + proposta);
+            });
+
+            paginas[1] = CriarPagina("Pagina_Diplomacia");
+            AdicionarTexto(paginas[1].transform, "DIPLOMACIA ENTRE REINOS", 16, true, 32f);
+            AdicionarTexto(paginas[1].transform, "Registre propostas de relação para planejamento. Elas ainda não são enviadas a outro reino.", 13, false, 52f);
+            campoTratado = CriarCampo(paginas[1].transform, "Ex.: Tratado de paz e comércio");
+            CriarBotao(paginas[1].transform, "Registrar proposta de paz", delegate { RegistrarDiplomacia("Paz", campoTratado); });
+            CriarBotao(paginas[1].transform, "Registrar proposta comercial", delegate { RegistrarDiplomacia("Comércio", campoTratado); });
+            CriarBotao(paginas[1].transform, "Registrar proposta de aliança", delegate { RegistrarDiplomacia("Aliança", campoTratado); });
+            CriarBotao(paginas[1].transform, "Guerra (indisponível)", delegate
+            {
+                AtualizarStatus("Declaração de guerra desativada: a integração com a API nativa ainda não está implementada.");
+            });
+
+            paginas[2] = CriarPagina("Pagina_Reunioes");
+            AdicionarTexto(paginas[2].transform, "REUNIÕES E CONSELHO", 16, true, 32f);
+            AdicionarTexto(paginas[2].transform, "Guarde uma pauta para retomar durante a sessão de jogo.", 13, false, 34f);
+            campoReuniao = CriarCampo(paginas[2].transform, "Ex.: Segurança das aldeias e escassez de alimentos");
+            CriarBotao(paginas[2].transform, "Registrar pauta do conselho", delegate
+            {
+                ultimaPauta = TextoOuPadrao(campoReuniao, "Pauta do conselho");
+                AtualizarStatus("Pauta registrada nesta sessão: " + ultimaPauta);
+            });
+
+            paginas[3] = CriarPagina("Pagina_RPG");
+            AdicionarTexto(paginas[3].transform, "EVENTOS E INTERAÇÕES DE RPG", 16, true, 32f);
+            AdicionarTexto(paginas[3].transform, "Crie um registro narrativo e escolha uma resposta. Isso não gera eventos nativos no mapa ainda.", 13, false, 52f);
+            campoEvento = CriarCampo(paginas[3].transform, "Ex.: Um emissário chega com notícias da fronteira");
+            CriarBotao(paginas[3].transform, "Registrar evento narrativo", delegate
+            {
+                ultimoEvento = TextoOuPadrao(campoEvento, "Evento narrativo");
+                AtualizarStatus("Evento narrativo registrado nesta sessão: " + ultimoEvento);
+            });
+            CriarBotao(paginas[3].transform, "Escolha: negociar", delegate
+            {
+                ultimoEvento = TextoOuPadrao(campoEvento, "Evento narrativo") + " | resposta: negociar";
+                AtualizarStatus("Resposta registrada localmente: negociar.");
+            });
+            CriarBotao(paginas[3].transform, "Escolha: recusar", delegate
+            {
+                ultimoEvento = TextoOuPadrao(campoEvento, "Evento narrativo") + " | resposta: recusar";
+                AtualizarStatus("Resposta registrada localmente: recusar.");
+            });
+
+            textoEstado = AdicionarTexto(ContentTransform, "Estado: pronto.", 12, false, 42f);
+            TrocarPagina(0);
+        }
+
+        public override void OnFirstEnable()
+        {
+            AtualizarStatus("Janela nativa aberta. Use as abas para navegar.");
+        }
+
+        public override void OnNormalEnable() { }
+
+        public override void OnNormalDisable() { }
+
+        private GameObject CriarPagina(string nome)
+        {
+            GameObject pagina = new GameObject(nome,
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            pagina.transform.SetParent(ContentTransform, false);
+            PrepararLayoutVertical(pagina.transform, 7f, new RectOffset(6, 6, 6, 6));
+            return pagina;
+        }
+
+        private void TrocarPagina(int indice)
+        {
+            for (int i = 0; i < paginas.Length; i++)
+            {
+                if (paginas[i] != null) paginas[i].SetActive(i == indice);
+            }
+            AtualizarStatus("Aba aberta: " + new string[] { "Governo", "Diplomacia", "Reuniões", "RPG" }[indice] + ".");
+        }
+
+        private void RegistrarDiplomacia(string tipo, InputField campo)
+        {
+            string proposta = tipo + ": " + TextoOuPadrao(campo, "Proposta diplomática");
+            propostasDiplomaticas.Add(proposta);
+            AtualizarStatus("Proposta diplomática registrada nesta sessão (" + propostasDiplomaticas.Count + "): " + proposta);
+        }
+
+        private string TextoProtecao() { return "Proteção de aldeias: " + (protegerAldeias ? "ATIVA" : "INATIVA"); }
+        private string TextoComercio() { return "Incentivo ao comércio: " + (incentivarComercio ? "ATIVO" : "INATIVO"); }
+        private string TextoRecrutamento() { return "Recrutamento: " + (ampliarRecrutamento ? "AMPLIADO" : "NORMAL"); }
+
+        private void AtualizarTextoBotao(string nome, string legenda)
+        {
+            Button[] botoes = ContentTransform.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < botoes.Length; i++)
+            {
+                if (botoes[i].gameObject.name == "Botao_" + nome)
                 {
-                    UnityEngine.Object[] fonts=Resources.FindObjectsOfTypeAll(typeof(Font));
-                    for(int i=0;i<fonts.Length;i++){fonte=fonts[i] as Font;if(fonte!=null)break;}
-                }
-                spriteJanela=BuscarSpriteJanela();
-                ConstruirCanvas();
-                Debug.Log("[Observatorio] CANVAS_CREATED: root canvas e SafeAreaRoot inicializados.");
-            }
-            catch(Exception ex)
-            {
-                Debug.LogError("[Observatorio] CANVAS_NOT_CREATED: "+ex.GetType().Name+": "+ex.Message);
-            }
-        }
-
-        private void Update()
-        {
-            frames++;
-            if(safeAreaRect!=null && Screen.safeArea!=lastSafeArea)AplicarSafeArea();
-            if(!ProtecaoStatusCompleta() && frames%120==0 && frames<=360)InstalarProtecaoStatus();
-            if (frames % 25 == 0) TentarInserirBotaoNativo();
-            if (frames % 60 == 0)
-            {
-                bool uiOk = canvas != null && canvas.gameObject != null && canvas.gameObject.activeInHierarchy
-                    && textoDiagnostico != null && textoDiagnostico.gameObject.activeInHierarchy;
-                if (!uiOk && !tentouAvisarFalha)
-                {
-                    tentouAvisarFalha = true;
-                    Debug.LogError("[Observatorio] Diagnostico UI: Canvas ou texto diagnostico nao esta ativo.");
+                    Text t = botoes[i].GetComponentInChildren<Text>(true);
+                    if (t != null) t.text = legenda;
+                    return;
                 }
             }
-            if (frames % 45 == 0)
-            {
-                string safe = Screen.safeArea.width.ToString("0") + "x" + Screen.safeArea.height.ToString("0");
-                if (textoDiagnostico != null)
-                    textoDiagnostico.text = "OBSERVATORIO " + BuildTag + " | tela " + Screen.width + "x" + Screen.height
-                        + " | area segura " + safe + " | Canvas ativo=" + (canvas != null && canvas.gameObject.activeInHierarchy)
-                        + " | GOV nativo=" + (botaoNativoClonado != null) + " | fallback=" + (faixaAlternativa != null && faixaAlternativa.activeInHierarchy);
-            }
         }
 
-        private void ConstruirCanvas()
+        private void AtualizarStatus(string mensagem)
         {
-            GameObject go = gameObject;
-            RectTransform rootRect=GetComponent<RectTransform>();
-            if(rootRect!=null)
-            {
-                rootRect.anchorMin=Vector2.zero;rootRect.anchorMax=Vector2.one;
-                rootRect.offsetMin=Vector2.zero;rootRect.offsetMax=Vector2.zero;
-            }
-            canvas=GetComponent<Canvas>();
-            if(canvas==null)canvas=go.AddComponent<Canvas>();
-            canvas.renderMode=RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder=32000;
-            CanvasScaler scaler=GetComponent<CanvasScaler>();
-            if(scaler==null)scaler=go.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution=new Vector2(720f,1280f);
-            scaler.matchWidthOrHeight=0.5f;
-            if(GetComponent<GraphicRaycaster>()==null)go.AddComponent<GraphicRaycaster>();
-
-            GameObject safeRoot=NovoUI("SafeAreaRoot",go.transform,typeof(RectTransform));
-            RectTransform safeRect=safeRoot.GetComponent<RectTransform>();
-            safeRect.anchorMin=Vector2.zero;safeRect.anchorMax=Vector2.one;
-            safeRect.offsetMin=Vector2.zero;safeRect.offsetMax=Vector2.zero;
-            safeAreaRect=safeRect;
-            AplicarSafeArea();
-            Transform uiRoot=safeRoot.transform;
-
-            GameObject fallback=NovoUI("Atalho reserva Governo",uiRoot,typeof(Image),typeof(Button));
-            RectTransform fr=fallback.GetComponent<RectTransform>();
-            fr.anchorMin=new Vector2(0.02f,0.87f); fr.anchorMax=new Vector2(0.32f,0.93f);
-            fr.offsetMin=Vector2.zero; fr.offsetMax=Vector2.zero;
-            Image fi=fallback.GetComponent<Image>(); fi.color=new Color(0.23f,0.25f,0.21f,0.98f);
-            Button fb=fallback.GetComponent<Button>(); fb.targetGraphic=fi; fb.onClick.AddListener(delegate { Abrir(); });
-            AdicionarBordaDourada(fallback);
-            TextoFilho(fallback.transform,"GOVERNO",15,FontStyle.Bold,new Color(1f,0.72f,0.28f));
-            faixaAlternativa=fallback;
-
-            GameObject diag=NovoUI("Diagnostico visivel",uiRoot,typeof(Image));
-            RectTransform dr=diag.GetComponent<RectTransform>();
-            dr.anchorMin=new Vector2(0.02f,0.80f);dr.anchorMax=new Vector2(0.98f,0.86f);
-            dr.offsetMin=Vector2.zero;dr.offsetMax=Vector2.zero;
-            diag.GetComponent<Image>().color=new Color(0.12f,0.13f,0.11f,0.96f);
-            textoDiagnostico=TextoFilho(diag.transform,"Observatorio carregado: inicializando interface...",12,FontStyle.Bold,new Color(1f,0.76f,0.30f));
-            textoDiagnostico.alignment=TextAnchor.MiddleLeft;
-
-            GameObject p=NovoUI("Painel de administracao",uiRoot,typeof(Image));
-            painel=p.GetComponent<RectTransform>();
-            painel.anchorMin=new Vector2(0.045f,0.045f); painel.anchorMax=new Vector2(0.955f,0.955f);
-            painel.offsetMin=Vector2.zero; painel.offsetMax=Vector2.zero; painel.pivot=new Vector2(0.5f,0.5f);
-            Image pi=p.GetComponent<Image>(); pi.color=new Color(0.24f,0.26f,0.22f,0.99f);
-            if(spriteJanela!=null){pi.sprite=spriteJanela;pi.type=spriteJanela.border.sqrMagnitude>0.01f?Image.Type.Sliced:Image.Type.Simple;pi.preserveAspect=false;}
-
-            GameObject topo=NovoUI("Barra de titulo",p.transform,typeof(Image));
-            RectTransform tr=topo.GetComponent<RectTransform>(); Anchors(tr,new Vector2(0f,0.91f),new Vector2(1f,1f),new Vector2(8f,-4f),new Vector2(-8f,-4f));
-            topo.GetComponent<Image>().color=new Color(0.13f,0.15f,0.13f,0.95f);
-            TextoFilho(topo.transform,"OBSERVATORIO DOS REINOS",18,FontStyle.Bold,new Color(1f,0.68f,0.23f)).alignment=TextAnchor.MiddleLeft;
-            Button fechar=Botao(topo.transform,"X",new Color(0.58f,0.16f,0.12f,1f),42f);
-            RectTransform fecharR=fechar.GetComponent<RectTransform>(); fecharR.anchorMin=new Vector2(1f,0.08f); fecharR.anchorMax=new Vector2(1f,0.92f); fecharR.pivot=new Vector2(1f,0.5f); fecharR.sizeDelta=new Vector2(44f,0f); fecharR.anchoredPosition=Vector2.zero;
-            fechar.onClick.AddListener(delegate { DefinirAberto(false); });
-
-            GameObject nav=NovoUI("Navegacao",p.transform,typeof(HorizontalLayoutGroup));
-            RectTransform nr=nav.GetComponent<RectTransform>(); Anchors(nr,new Vector2(0.025f,0.815f),new Vector2(0.975f,0.90f),Vector2.zero,Vector2.zero);
-            HorizontalLayoutGroup hg=nav.GetComponent<HorizontalLayoutGroup>(); hg.spacing=5f; hg.childControlWidth=true; hg.childForceExpandWidth=true; hg.childControlHeight=true; hg.childForceExpandHeight=true;
-            string[] nomes={"Governo","Diplomacia","Reunioes","RPG"};
-            for(int i=0;i<4;i++){int j=i;Button b=Botao(nav.transform,nomes[i],new Color(0.31f,0.33f,0.28f,1f),46f);b.onClick.AddListener(delegate{TrocarAba(j);});}
-
-            GameObject estado=NovoUI("Estado da acao",p.transform,typeof(Image));
-            RectTransform er=estado.GetComponent<RectTransform>(); Anchors(er,new Vector2(0.025f,0.055f),new Vector2(0.975f,0.13f),Vector2.zero,Vector2.zero);
-            estado.GetComponent<Image>().color=new Color(0.13f,0.15f,0.13f,0.95f);
-            textoEstado=TextoFilho(estado.transform,"Painel de teste pronto. As acoes ainda sao rascunhos locais.",13,FontStyle.Normal,new Color(0.94f,0.93f,0.82f));
-            textoEstado.alignment=TextAnchor.MiddleLeft;
-
-            for(int i=0;i<4;i++) paginas[i]=CriarPagina(p.transform,i);
-            TrocarAba(0);
-            DefinirAberto(false);
+            if (textoEstado != null) textoEstado.text = "Estado: " + mensagem;
         }
 
-        private GameObject CriarPagina(Transform pai,int indice)
+        private static string TextoOuPadrao(InputField campo, string padrao)
         {
-            GameObject pg=NovoUI("Pagina "+indice,pai.transform,typeof(ScrollRect),typeof(Image));
-            RectTransform r=pg.GetComponent<RectTransform>(); Anchors(r,new Vector2(0.035f,0.145f),new Vector2(0.965f,0.80f),Vector2.zero,Vector2.zero);
-            Image pi=pg.GetComponent<Image>();pi.color=new Color(0.17f,0.19f,0.16f,0.78f);
-            ScrollRect scroll=pg.GetComponent<ScrollRect>();scroll.horizontal=false;scroll.vertical=true;
-            GameObject vp=NovoUI("Viewport",pg.transform,typeof(RectTransform),typeof(Image),typeof(Mask));
-            RectTransform vr=vp.GetComponent<RectTransform>();vr.anchorMin=Vector2.zero;vr.anchorMax=Vector2.one;vr.offsetMin=Vector2.zero;vr.offsetMax=Vector2.zero;
-            vp.GetComponent<Image>().color=new Color(1f,1f,1f,0.015f);vp.GetComponent<Mask>().showMaskGraphic=false;scroll.viewport=vr;
-            GameObject content=NovoUI("Conteudo",vp.transform,typeof(RectTransform),typeof(VerticalLayoutGroup),typeof(ContentSizeFitter));
-            RectTransform cr=content.GetComponent<RectTransform>();cr.anchorMin=new Vector2(0f,1f);cr.anchorMax=new Vector2(1f,1f);cr.pivot=new Vector2(0.5f,1f);cr.anchoredPosition=Vector2.zero;cr.sizeDelta=new Vector2(0f,0f);
-            VerticalLayoutGroup v=content.GetComponent<VerticalLayoutGroup>();v.padding=new RectOffset(12,12,12,12);v.spacing=8f;v.childControlWidth=true;v.childForceExpandWidth=true;v.childControlHeight=false;v.childForceExpandHeight=false;
-            ContentSizeFitter fit=content.GetComponent<ContentSizeFitter>();fit.verticalFit=ContentSizeFitter.FitMode.PreferredSize;fit.horizontalFit=ContentSizeFitter.FitMode.Unconstrained;
-            scroll.content=cr;
-            if(indice==0)
-            {
-                Rotulo(content.transform,"POLITICAS DO REINO",16,true);
-                Rotulo(content.transform,"Nome da proposta",13,false);
-                campoLei=Campo(content.transform,"Protecao das aldeias");
-                Alternancia(content.transform,"Proteger aldeias e civis",true);
-                Alternancia(content.transform,"Incentivar o comercio",false);
-                Alternancia(content.transform,"Expandir o recrutamento",false);
-                Acao(content.transform,"Preparar proposta de lei", "Rascunho local criado. Nenhuma politica nativa foi alterada.");
-                Rotulo(content.transform,"Administracao financeira, impostos e cargos serao conectados apos validar os dados reais do reino.",13,false);
-            }
-            else if(indice==1)
-            {
-                Rotulo(content.transform,"DIPLOMACIA ENTRE REINOS",16,true);
-                Rotulo(content.transform,"Texto da proposta",13,false);
-                campoTratado=Campo(content.transform,"Proposta de paz e comercio");
-                Acao(content.transform,"Preparar tratado","Rascunho de tratado preparado; ainda nao enviado a outro reino.");
-                Acao(content.transform,"Solicitar reuniao","Pedido preparado localmente; ainda nao ha reuniao nativa.");
-                Acao(content.transform,"Declarar guerra (bloqueado)","Bloqueado ate confirmar a API nativa de guerra.");
-            }
-            else if(indice==2)
-            {
-                Rotulo(content.transform,"REUNIOES E CONTATO COM VILAS",16,true);
-                Rotulo(content.transform,"Pauta do conselho",13,false);
-                campoReuniao=Campo(content.transform,"Necessidades das aldeias, recursos e seguranca");
-                Acao(content.transform,"Preparar reuniao do conselho","Pauta guardada nesta sessao; ninguem foi convocado.");
-                Acao(content.transform,"Contatar vila (demonstracao)","A integracao real com cidades/vilas ainda esta pendente.");
-            }
-            else
-            {
-                Rotulo(content.transform,"EVENTOS E INTERACOES DE RPG",16,true);
-                Rotulo(content.transform,"Descricao do evento",13,false);
-                campoEvento=Campo(content.transform,"Um emissario chega ao castelo com noticias da fronteira.");
-                Acao(content.transform,"Criar rascunho de evento","Rascunho narrativo criado; sem efeito no mundo.");
-                Acao(content.transform,"Escolha: negociar","Escolha marcada como demonstracao.");
-                Acao(content.transform,"Escolha: recusar","Escolha marcada como demonstracao.");
-            }
-            pg.SetActive(false);
-            return pg;
+            if (campo == null || string.IsNullOrWhiteSpace(campo.text)) return padrao;
+            return campo.text.Trim();
         }
 
-        private void TrocarAba(int n)
+        private Text AdicionarTexto(Transform parent, string frase, int tamanho, bool negrito, float altura)
         {
-            aba=Mathf.Clamp(n,0,3);
-            if(paginas!=null)for(int i=0;i<paginas.Length;i++)if(paginas[i]!=null)paginas[i].SetActive(i==aba);
+            GameObject go = new GameObject("Texto_" + frase, typeof(RectTransform), typeof(Text), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            Text texto = go.GetComponent<Text>();
+            texto.font = fonte;
+            texto.fontSize = tamanho;
+            texto.fontStyle = negrito ? FontStyle.Bold : FontStyle.Normal;
+            texto.color = negrito ? new Color(1f, 0.72f, 0.30f, 1f) : new Color(0.92f, 0.93f, 0.85f, 1f);
+            texto.text = frase;
+            texto.supportRichText = false;
+            texto.alignment = TextAnchor.MiddleLeft;
+            texto.horizontalOverflow = HorizontalWrapMode.Wrap;
+            texto.verticalOverflow = VerticalWrapMode.Overflow;
+            LayoutElement le = go.GetComponent<LayoutElement>();
+            le.preferredHeight = altura;
+            le.minHeight = altura;
+            return texto;
         }
 
-        private void DefinirAberto(bool valor)
+        private InputField CriarCampo(Transform parent, string placeholder)
         {
-            if(painel!=null)painel.gameObject.SetActive(valor);
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(!valor);
-        }
+            GameObject go = new GameObject("Campo_" + placeholder,
+                typeof(RectTransform), typeof(Image), typeof(InputField), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            Image image = go.GetComponent<Image>();
+            image.color = new Color(0.10f, 0.12f, 0.10f, 0.98f);
+            InputField input = go.GetComponent<InputField>();
+            input.targetGraphic = image;
+            input.lineType = InputField.LineType.MultiLineNewline;
+            LayoutElement le = go.GetComponent<LayoutElement>();
+            le.preferredHeight = 62f;
+            le.minHeight = 56f;
 
-        private void Acao(Transform pai,string nome,string resposta)
-        {
-            Button b=Botao(pai,nome,new Color(0.34f,0.36f,0.29f,1f),46f);
-            b.onClick.AddListener(delegate{if(textoEstado!=null)textoEstado.text=resposta;});
-        }
+            Text value = CriarTextoCampo(go.transform, "", new Color(0.96f, 0.95f, 0.88f, 1f), false);
+            value.alignment = TextAnchor.UpperLeft;
+            input.textComponent = value;
 
-        private void Rotulo(Transform pai,string frase,int tamanho,bool forte)
-        {
-            GameObject go=NovoUI("Rotulo",pai,typeof(LayoutElement));
-            LayoutElement le=go.GetComponent<LayoutElement>();le.preferredHeight=forte?34f:27f;le.minHeight=le.preferredHeight;
-            Text t=TextoFilho(go.transform,frase,tamanho,forte?FontStyle.Bold:FontStyle.Normal,forte?new Color(1f,0.70f,0.27f):new Color(0.92f,0.92f,0.82f));
-            t.alignment=TextAnchor.MiddleLeft;
-        }
-
-        private InputField Campo(Transform pai,string placeholder)
-        {
-            GameObject go=NovoUI("Campo de texto",pai,typeof(Image),typeof(InputField),typeof(LayoutElement));
-            Image img=go.GetComponent<Image>();img.color=new Color(0.10f,0.12f,0.10f,0.98f);
-            LayoutElement le=go.GetComponent<LayoutElement>();le.preferredHeight=68f;le.minHeight=58f;
-            InputField input=go.GetComponent<InputField>();input.targetGraphic=img;input.lineType=InputField.LineType.MultiLineNewline;
-            GameObject tx=NovoUI("Texto",go.transform,typeof(Text));
-            RectTransform tr=tx.GetComponent<RectTransform>();tr.anchorMin=Vector2.zero;tr.anchorMax=Vector2.one;tr.offsetMin=new Vector2(10f,7f);tr.offsetMax=new Vector2(-10f,-7f);
-            Text t=tx.GetComponent<Text>();t.font=fonte;t.fontSize=14;t.color=new Color(0.96f,0.95f,0.88f);t.alignment=TextAnchor.UpperLeft;t.supportRichText=false;input.textComponent=t;
-            GameObject ph=NovoUI("Placeholder",go.transform,typeof(Text));
-            RectTransform pr=ph.GetComponent<RectTransform>();pr.anchorMin=Vector2.zero;pr.anchorMax=Vector2.one;pr.offsetMin=new Vector2(10f,7f);pr.offsetMax=new Vector2(-10f,-7f);
-            Text pt=ph.GetComponent<Text>();pt.font=fonte;pt.fontSize=14;pt.fontStyle=FontStyle.Italic;pt.color=new Color(0.57f,0.60f,0.53f);pt.text=placeholder;pt.alignment=TextAnchor.UpperLeft;input.placeholder=pt;
-            input.text=placeholder;
+            Text hint = CriarTextoCampo(go.transform, placeholder, new Color(0.57f, 0.60f, 0.53f, 1f), true);
+            hint.alignment = TextAnchor.UpperLeft;
+            input.placeholder = hint;
+            input.text = "";
             return input;
         }
 
-        private void Alternancia(Transform pai,string nome,bool ligado)
+        private Text CriarTextoCampo(Transform parent, string frase, Color cor, bool italico)
         {
-            GameObject go=NovoUI("Opcao "+nome,pai,typeof(Toggle),typeof(Image),typeof(LayoutElement));
-            LayoutElement le=go.GetComponent<LayoutElement>();le.preferredHeight=34f;le.minHeight=32f;
-            Image fundo=go.GetComponent<Image>();fundo.color=new Color(0.20f,0.22f,0.18f,0.8f);
-            Toggle tog=go.GetComponent<Toggle>();tog.isOn=ligado;tog.targetGraphic=fundo;
-            GameObject texto=NovoUI("Texto",go.transform,typeof(Text));
-            RectTransform r=texto.GetComponent<RectTransform>();r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=new Vector2(12f,0f);r.offsetMax=new Vector2(-8f,0f);
-            Text t=texto.GetComponent<Text>();t.font=fonte;t.fontSize=14;t.color=Color.white;t.alignment=TextAnchor.MiddleLeft;t.text=(ligado?"[x] ":"[ ] ")+nome;
-            tog.onValueChanged.AddListener(delegate(bool valor){t.text=(valor?"[x] ":"[ ] ")+nome;});
+            GameObject go = new GameObject("TextoCampo", typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(10f, 7f);
+            rect.offsetMax = new Vector2(-10f, -7f);
+            Text texto = go.GetComponent<Text>();
+            texto.font = fonte;
+            texto.fontSize = 14;
+            texto.fontStyle = italico ? FontStyle.Italic : FontStyle.Normal;
+            texto.color = cor;
+            texto.text = frase;
+            texto.supportRichText = false;
+            texto.horizontalOverflow = HorizontalWrapMode.Wrap;
+            texto.verticalOverflow = VerticalWrapMode.Overflow;
+            return texto;
         }
 
-        private Button Botao(Transform pai,string legenda,Color cor,float altura)
+        private Button CriarBotao(Transform parent, string legenda, Action acao)
         {
-            GameObject go=NovoUI("Botao "+legenda,pai,typeof(Image),typeof(Button),typeof(LayoutElement));
-            Image img=go.GetComponent<Image>();img.color=cor;
-            LayoutElement le=go.GetComponent<LayoutElement>();le.preferredHeight=altura;le.minHeight=altura;
-            Button b=go.GetComponent<Button>();b.targetGraphic=img;b.transition=Selectable.Transition.ColorTint;
-            ColorBlock cb=b.colors;cb.normalColor=cor;cb.highlightedColor=new Color(Mathf.Min(cor.r+0.12f,1f),Mathf.Min(cor.g+0.12f,1f),Mathf.Min(cor.b+0.12f,1f),1f);cb.pressedColor=new Color(0.72f,0.61f,0.36f,1f);b.colors=cb;
-            Text t=TextoFilho(go.transform,legenda,14,FontStyle.Bold,Color.white);t.alignment=TextAnchor.MiddleCenter;
-            return b;
+            GameObject go = new GameObject("Botao_" + legenda,
+                typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            Image image = go.GetComponent<Image>();
+            image.color = new Color(0.30f, 0.33f, 0.25f, 1f);
+            Button button = go.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(acao);
+            LayoutElement le = go.GetComponent<LayoutElement>();
+            le.preferredHeight = 42f;
+            le.minHeight = 38f;
+            Text texto = CriarTextoCampo(go.transform, legenda, Color.white, false);
+            texto.fontStyle = FontStyle.Bold;
+            texto.alignment = TextAnchor.MiddleCenter;
+            return button;
         }
 
-        private GameObject NovoUI(string nome,Transform pai,params Type[] comps)
+        private static void PrepararLayoutVertical(Transform target, float espacamento, RectOffset padding)
         {
-            bool temRect=false;
-            for(int i=0;i<comps.Length;i++)if(comps[i]==typeof(RectTransform)){temRect=true;break;}
-            Type[] tipos=comps;
-            if(!temRect)
-            {
-                tipos=new Type[comps.Length+1];
-                tipos[0]=typeof(RectTransform);
-                Array.Copy(comps,0,tipos,1,comps.Length);
-            }
-            GameObject go=new GameObject(nome,tipos);go.transform.SetParent(pai,false);
-            RectTransform r=go.GetComponent<RectTransform>();
-            if(r!=null){r.localScale=Vector3.one;r.localRotation=Quaternion.identity;}
-            return go;
-        }
+            VerticalLayoutGroup layout = target.GetComponent<VerticalLayoutGroup>();
+            if (layout == null) layout = target.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = padding;
+            layout.spacing = espacamento;
+            layout.childControlWidth = true;
+            layout.childForceExpandWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandHeight = false;
 
-        private Text TextoFilho(Transform pai,string frase,int tamanho,FontStyle estilo,Color cor)
-        {
-            GameObject go=NovoUI("Texto "+frase,pai,typeof(Text));
-            RectTransform r=go.GetComponent<RectTransform>();r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=new Vector2(8f,2f);r.offsetMax=new Vector2(-8f,-2f);
-            Text t=go.GetComponent<Text>();t.font=fonte;t.fontSize=tamanho;t.fontStyle=estilo;t.color=cor;t.text=frase;t.supportRichText=false;t.horizontalOverflow=HorizontalWrapMode.Wrap;t.verticalOverflow=VerticalWrapMode.Overflow;
-            return t;
-        }
-
-        private static void Anchors(RectTransform r,Vector2 min,Vector2 max,Vector2 offMin,Vector2 offMax)
-        {
-            r.anchorMin=min;r.anchorMax=max;r.offsetMin=offMin;r.offsetMax=offMax;
-        }
-
-        private void AdicionarBordaDourada(GameObject go)
-        {
-            Outline outline=go.AddComponent<Outline>();outline.effectColor=new Color(0.68f,0.47f,0.20f,0.95f);outline.effectDistance=new Vector2(2f,-2f);
-        }
-
-        private void AplicarSafeArea()
-        {
-            if(safeAreaRect==null)return;
-            Rect area=Screen.safeArea;
-            lastSafeArea=area;
-            Vector2 min=area.position;
-            Vector2 max=area.position+area.size;
-            min.x/=Mathf.Max(1f,Screen.width);min.y/=Mathf.Max(1f,Screen.height);
-            max.x/=Mathf.Max(1f,Screen.width);max.y/=Mathf.Max(1f,Screen.height);
-            safeAreaRect.anchorMin=min;safeAreaRect.anchorMax=max;
-            safeAreaRect.offsetMin=Vector2.zero;safeAreaRect.offsetMax=Vector2.zero;
-        }
-
-        private static Sprite BuscarSpriteJanela()
-        {
-            try
-            {
-                Type t=Type.GetType("ScrollWindow, Assembly-CSharp");
-                if(t==null)return null;
-                UnityEngine.Object[] objs=Resources.FindObjectsOfTypeAll(t);
-                for(int i=0;i<objs.Length;i++)
-                {
-                    Component c=objs[i] as Component;if(c==null)continue;
-                    FieldInfo f=t.GetField("_bg_rect",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
-                    if(f==null)continue;
-                    RectTransform rect=f.GetValue(c) as RectTransform;
-                    if(rect==null)continue;
-                    Image image=rect.GetComponent<Image>();if(image==null)image=rect.GetComponentInChildren<Image>(true);
-                    if(image!=null&&image.sprite!=null)return image.sprite;
-                }
-            }
-            catch(Exception ex){Debug.Log("[Observatorio] Sprite nativo indisponivel: "+ex.GetType().Name);}
-            return null;
-        }
-
-        private void TentarInserirBotaoNativo()
-        {
-            if(botaoNativoClonado!=null)return;
-            string[] tipos={"SelectedPowerTabButtons","SelectedPowerTabTopButtons"};
-            for(int t=0;t<tipos.Length;t++)
-            {
-                Type tipo=BuscarTipoCarregado(tipos[t],tipos[t]+", Assembly-CSharp");if(tipo==null)continue;
-                UnityEngine.Object[] objetos=Resources.FindObjectsOfTypeAll(tipo);
-                for(int i=0;i<objetos.Length;i++)
-                {
-                    Component c=objetos[i] as Component;if(c==null||c.gameObject==null)continue;
-                    Button info=LocalizarBotaoInfo(c,tipo);
-                    if(info==null||info.transform==null||info.transform.parent==null)continue;
-                    if(info.gameObject.scene.IsValid()==false)continue;
-                    if(info.transform.parent.Find(IdBotao)!=null){botaoNativoClonado=info.transform.parent.Find(IdBotao).GetComponent<Button>();return;}
-                    Button novo=CriarBotaoVizinho(info);
-                    if(novo!=null){botaoNativoClonado=novo;donoBotaoNativo=c;Debug.Log("[Observatorio] Botao de governo inserido acima do botao nativo de informacoes; atalho de reserva mantido visivel.");return;}
-                }
-            }
-        }
-
-        private Button LocalizarBotaoInfo(Component c,Type tipo)
-        {
-            string[] preferidos={"_button_open_window","_button_open_main","button_open_main","buttonOpenMain","button_open_window","button_info","info_button"};
-            for(int p=0;p<preferidos.Length;p++)
-            {
-                for(Type t=tipo;t!=null;t=t.BaseType)
-                {
-                    FieldInfo f=t.GetField(preferidos[p],BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.DeclaredOnly);
-                    if(f==null)continue;
-                    Button b=ComoBotao(f.GetValue(c));if(b!=null)return b;
-                }
-            }
-            Button[] bs=c.GetComponentsInChildren<Button>(true);
-            for(int i=0;i<bs.Length;i++)
-            {
-                string n=bs[i].gameObject.name.ToLowerInvariant();
-                if(n.Contains("open")||n.Contains("main")||n.Contains("info")||n.Contains("window"))return bs[i];
-            }
-            return null;
-        }
-
-        private Button ComoBotao(object o)
-        {
-            Button b=o as Button;if(b!=null)return b;
-            GameObject g=o as GameObject;if(g!=null)return g.GetComponent<Button>();
-            Component c=o as Component;if(c!=null)return c.GetComponent<Button>();
-            return null;
-        }
-
-        private Button CriarBotaoVizinho(Button original)
-        {
-            try
-            {
-                Transform pai=original.transform.parent;
-                RectTransform velho=original.GetComponent<RectTransform>();
-                GameObject go=NovoUI(IdBotao,pai,typeof(Image),typeof(Button),typeof(LayoutElement));
-                Image img=go.GetComponent<Image>();
-                Image source=original.targetGraphic as Image;if(source==null)source=original.GetComponent<Image>();
-                if(source!=null){img.sprite=source.sprite;img.type=source.type;img.color=source.color;img.material=source.material;img.preserveAspect=source.preserveAspect;}
-                else img.color=new Color(0.26f,0.29f,0.24f,1f);
-                Button b=go.GetComponent<Button>();b.targetGraphic=img;
-                LayoutElement le=go.GetComponent<LayoutElement>();
-                le.preferredWidth=velho.rect.width;le.preferredHeight=velho.rect.height;le.minWidth=velho.rect.width;le.minHeight=velho.rect.height;
-                RectTransform nr=go.GetComponent<RectTransform>();nr.sizeDelta=velho.sizeDelta;nr.anchorMin=velho.anchorMin;nr.anchorMax=velho.anchorMax;nr.pivot=velho.pivot;nr.localScale=velho.localScale;
-                HorizontalLayoutGroup horizontal=pai.GetComponent<HorizontalLayoutGroup>();
-                VerticalLayoutGroup vertical=pai.GetComponent<VerticalLayoutGroup>();
-                if(vertical!=null){nr.SetSiblingIndex(original.transform.GetSiblingIndex());}
-                else if(horizontal!=null)
-                {
-                    Transform grand=pai.parent;
-                    if(grand!=null)
-                    {
-                        go.transform.SetParent(grand,false);
-                        nr.anchorMin=new Vector2(0.5f,0.5f);nr.anchorMax=new Vector2(0.5f,0.5f);
-                        nr.pivot=new Vector2(0.5f,0.5f);nr.sizeDelta=new Vector2(velho.rect.width,velho.rect.height);
-                        nr.position=velho.position+new Vector3(0f,velho.rect.height+6f,0f);
-                        nr.SetAsLastSibling();
-                    }
-                    else {nr.SetSiblingIndex(original.transform.GetSiblingIndex());}
-                }
-                else
-                {
-                    nr.SetSiblingIndex(original.transform.GetSiblingIndex());
-                    nr.anchoredPosition=velho.anchoredPosition+new Vector2(0f,velho.rect.height+6f);
-                }
-                Text oldText=original.GetComponentInChildren<Text>(true);
-                Text texto=TextoFilho(go.transform,"GOV",Mathf.Clamp(Mathf.RoundToInt(velho.rect.width/6f),9,13),FontStyle.Bold,new Color(1f,0.72f,0.28f));
-                texto.alignment=TextAnchor.MiddleCenter;
-                if(oldText!=null&&oldText.font!=null)texto.font=oldText.font;
-                b.onClick.AddListener(delegate{Abrir();});
-                return b;
-            }
-            catch(Exception ex){Debug.LogWarning("[Observatorio] Nao foi possivel inserir o botao na barra nativa: "+ex.GetType().Name+": "+ex.Message);return null;}
-        }
-
-        private bool ProtecaoStatusCompleta()
-        {
-            return patchInfoCompleto && patchStatsPrefixInstalado && patchStatsPostfixInstalado && patchStatsFinalizerInstalado;
-        }
-
-        private void InstalarProtecaoStatus()
-        {
-            try
-            {
-                Type harmonyType=BuscarTipoCarregado("HarmonyLib.Harmony", "HarmonyLib.Harmony, 0Harmony");
-                Type harmonyMethodType=BuscarTipoCarregado("HarmonyLib.HarmonyMethod", "HarmonyLib.HarmonyMethod, 0Harmony");
-                Type statsType=BuscarTipoCarregado("StatsWindow", "StatsWindow, Assembly-CSharp");
-                Type powerType=BuscarTipoCarregado("PowerTabController", "PowerTabController, Assembly-CSharp");
-
-                // Always print the runtime fingerprint before attempting Harmony. If Harmony is
-                // absent or loaded from an unexpected context, this is still the evidence needed
-                // to compare the actual game assemblies with the supplied reference package.
-                Debug.Log("[Observatorio] Runtime assembly fingerprint: StatsWindow="+IdentificarAssembly(statsType)
-                    +"; PowerTabController="+IdentificarAssembly(powerType)
-                    +"; Harmony="+IdentificarAssembly(harmonyType)
-                    +"; HarmonyMethod="+IdentificarAssembly(harmonyMethodType));
-
-                if(harmonyType==null||harmonyMethodType==null)
-                {
-                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: Harmony ausente. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null)+", PowerTabController="+(powerType!=null));
-                    return;
-                }
-
-                MethodInfo statsOnEnable=null;
-                if(statsType!=null)
-                {
-                    MethodInfo[] statsMethods=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
-                    List<string> onEnableCandidates=new List<string>();
-                    for(int i=0;i<statsMethods.Length;i++)
-                    {
-                        if(statsMethods[i].Name!="OnEnable")continue;
-                        onEnableCandidates.Add(statsMethods[i].ToString());
-                        if(statsMethods[i].GetParameters().Length==0)statsOnEnable=statsMethods[i];
-                    }
-                    Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",onEnableCandidates.ToArray()));
-                }
-                else Debug.LogWarning("[Observatorio] STATUS_WINDOW_TYPE_NOT_FOUND: tentando instalar apenas prefix de PowerTabController.");
-
-                ConstructorInfo harmonyCtor=harmonyType.GetConstructor(new Type[]{typeof(string)});
-                if(harmonyCtor==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: construtor Harmony(string) ausente.");return;}
-                object harmony=harmonyCtor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusguard"});
-                MethodInfo[] harmonyMethods=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
-                MethodInfo patch=EncontrarHarmonyPatch(harmonyMethods);
-                if(patch==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: assinatura Harmony.Patch nao reconhecida: "+ListarAssinaturas(harmonyMethods,"Patch"));return;}
-
-                MethodInfo prefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("PrefixSelectedInfoWhenOpeningStatus",BindingFlags.Public|BindingFlags.Static);
-                MethodInfo statusWindowPrefixMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowPrefix",BindingFlags.Public|BindingFlags.Static);
-                MethodInfo statusWindowPostfixMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowPostfix",BindingFlags.Public|BindingFlags.Static);
-                MethodInfo finalizerMethod=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
-                object prefixHarmony=prefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,prefixMethod);
-                object statusWindowPrefixHarmony=statusWindowPrefixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,statusWindowPrefixMethod);
-                object statusWindowPostfixHarmony=statusWindowPostfixMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,statusWindowPostfixMethod);
-                object finalizerHarmony=finalizerMethod==null?null:ConstruirHarmonyMethod(harmonyMethodType,finalizerMethod);
-                bool installedAny=false;
-
-                if(powerType!=null && prefixHarmony!=null)
-                {
-                    MethodInfo[] powerMethods=powerType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static|BindingFlags.DeclaredOnly);
-                    List<string> candidates=new List<string>();
-                    List<MethodInfo> eligible=new List<MethodInfo>();
-                    int newlyInstalled=0;
-                    for(int i=0;i<powerMethods.Length;i++)
-                    {
-                        MethodInfo candidate=powerMethods[i];
-                        if(candidate.Name!="showWhoIsSelected" && candidate.Name!="showWorldTipSelected")continue;
-                        ParameterInfo[] ps=candidate.GetParameters();
-                        if(ps.Length!=2 || ps[0].ParameterType!=typeof(string) || ps[1].ParameterType!=typeof(bool))continue;
-                        eligible.Add(candidate);
-                        candidates.Add(candidate.ToString());
-                        if(metodosInfoPatchados.Contains(candidate))continue;
-                        try
-                        {
-                            patch.Invoke(harmony,new object[]{candidate,prefixHarmony,null,null,null});
-                            metodosInfoPatchados.Add(candidate);
-                            newlyInstalled++;
-                            Debug.Log("[Observatorio] STATUS_INFO_PREFIX_INSTALLED: "+candidate.DeclaringType.FullName+"."+candidate.Name+" | "+candidate);
-                        }
-                        catch(Exception ex)
-                        {
-                            Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_FAILED: "+candidate+" | "+ex.GetType().Name+": "+ex.Message);
-                        }
-                    }
-                    patchInfoCompleto=eligible.Count>0;
-                    for(int i=0;i<eligible.Count;i++)if(!metodosInfoPatchados.Contains(eligible[i]))patchInfoCompleto=false;
-                    Debug.Log("[Observatorio] status info candidates="+eligible.Count+", installed="+metodosInfoPatchados.Count+", new="+newlyInstalled+", complete="+patchInfoCompleto+" | "+string.Join(" || ",candidates.ToArray()));
-                    if(newlyInstalled>0)installedAny=true;
-                }
-                else
-                {
-                    patchInfoCompleto=false;
-                    Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_NOT_INSTALLED: PowerTabController="+(powerType!=null)+", prefix="+(prefixHarmony!=null));
-                }
-
-                if(statsOnEnable!=null && statusWindowPrefixHarmony!=null && !patchStatsPrefixInstalado)
-                {
-                    try
-                    {
-                        patch.Invoke(harmony,new object[]{statsOnEnable,statusWindowPrefixHarmony,null,null,null});
-                        patchStatsPrefixInstalado=true;installedAny=true;
-                        Debug.Log("[Observatorio] STATUS_WINDOW_PREFIX_INSTALLED: "+statsOnEnable);
-                    }
-                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
-                }
-                else if(!patchStatsPrefixInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_PREFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", prefix="+(statusWindowPrefixHarmony!=null));
-
-                if(statsOnEnable!=null && statusWindowPostfixHarmony!=null && !patchStatsPostfixInstalado)
-                {
-                    try
-                    {
-                        patch.Invoke(harmony,new object[]{statsOnEnable,null,statusWindowPostfixHarmony,null,null});
-                        patchStatsPostfixInstalado=true;installedAny=true;
-                        Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX_INSTALLED: "+statsOnEnable);
-                    }
-                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_FAILED: "+ex.GetType().Name+": "+ex.Message);}
-                }
-                else if(!patchStatsPostfixInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_POSTFIX_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", postfix="+(statusWindowPostfixHarmony!=null));
-
-                if(statsOnEnable!=null && finalizerHarmony!=null && !patchStatsFinalizerInstalado)
-                {
-                    try
-                    {
-                        patch.Invoke(harmony,new object[]{statsOnEnable,null,null,null,finalizerHarmony});
-                        patchStatsFinalizerInstalado=true;installedAny=true;
-                        Debug.Log("[Observatorio] STATUS_WINDOW_FINALIZER_INSTALLED: "+statsOnEnable);
-                    }
-                    catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_FAILED: "+ex.GetType().Name+": "+ex.Message);}
-                }
-                else if(!patchStatsFinalizerInstalado)Debug.LogWarning("[Observatorio] STATUS_WINDOW_FINALIZER_NOT_INSTALLED: OnEnable="+(statsOnEnable!=null)+", finalizer="+(finalizerHarmony!=null));
-
-                patchInstalado=patchInstalado||installedAny||patchStatsPrefixInstalado||patchStatsPostfixInstalado||patchStatsFinalizerInstalado||metodosInfoPatchados.Count>0;
-                Debug.Log("[Observatorio] STATUS_PATCH_SUMMARY: installedAny="+patchInstalado+", infoPrefixComplete="+patchInfoCompleto+", statsPrefix="+patchStatsPrefixInstalado+", statsPostfix="+patchStatsPostfixInstalado+", finalizer="+patchStatsFinalizerInstalado+", complete="+ProtecaoStatusCompleta());
-            }
-            catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
-        }
-
-        private static string IdentificarAssembly(Type tipo)
-        {
-            if(tipo==null)return "(tipo ausente)";
-            try
-            {
-                return tipo.Assembly.FullName+" | MVID="+tipo.Module.ModuleVersionId.ToString("D");
-            }
-            catch(Exception ex){return tipo.FullName+" | MVID indisponivel: "+ex.GetType().Name;}
-        }
-
-        private static Type BuscarTipoCarregado(string nomeTipo, string nomeQualificado)
-        {
-            Type tipo=Type.GetType(nomeQualificado);
-            if(tipo!=null)return tipo;
-            try
-            {
-                System.Reflection.Assembly[] assemblies=AppDomain.CurrentDomain.GetAssemblies();
-                for(int i=0;i<assemblies.Length;i++)
-                {
-                    tipo=assemblies[i].GetType(nomeTipo,false);
-                    if(tipo!=null)return tipo;
-                }
-            }
-            catch(Exception ex){Debug.Log("[Observatorio] Tipo "+nomeTipo+" nao localizado por varredura: "+ex.GetType().Name);}
-            return null;
-        }
-
-        private static MethodInfo EncontrarHarmonyPatch(MethodInfo[] methods)
-        {
-            for(int i=0;i<methods.Length;i++)
-            {
-                if(methods[i].Name!="Patch")continue;
-                ParameterInfo[] ps=methods[i].GetParameters();
-                if(ps.Length==5 && ps[0].ParameterType==typeof(MethodBase))return methods[i];
-            }
-            return null;
-        }
-
-        private static object ConstruirHarmonyMethod(Type harmonyMethodType, MethodInfo method)
-{
-    try
-    {
-        ConstructorInfo[] cs = harmonyMethodType.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        for (int i = 0; i < cs.Length; i++)
-        {
-            ParameterInfo[] ps = cs[i].GetParameters();
-            if (ps.Length == 1 && ps[0].ParameterType == typeof(MethodInfo)) return cs[i].Invoke(new object[] { method });
+            ContentSizeFitter fitter = target.GetComponent<ContentSizeFitter>();
+            if (fitter == null) fitter = target.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
         }
     }
-    catch (Exception ex) { Debug.Log("[Observatorio] HarmonyMethod constructor probe: " + ex.GetType().Name); }
-    try
+
+    /// <summary>Atalho no Canvas de interface do jogo; a janela em si é um ScrollWindow nativo.</summary>
+    internal static class ObservatorioAtalhoGov
     {
-        object hm = Activator.CreateInstance(harmonyMethodType, true);
-        FieldInfo field = harmonyMethodType.GetField("method", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        if (field != null) { field.SetValue(hm, method); return hm; }
-        PropertyInfo property = harmonyMethodType.GetProperty("method", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        if (property != null && property.CanWrite) { property.SetValue(hm, method, null); return hm; }
-    }
-    catch (Exception ex) { Debug.Log("[Observatorio] HarmonyMethod fallback probe: " + ex.GetType().Name); }
-    return null;
-}
+        private static GameObject botaoRaiz;
 
-        public static void StatsWindowPrefix(out bool __state)
+        internal static bool TentarCriar()
         {
-            __state=abrindoStatus;
-            abrindoStatus=true;
-            Debug.Log("[Observatorio] STATUS_WINDOW_OPENING: escopo de protecao ativado antes de StatsWindow.OnEnable.");
-        }
+            if (botaoRaiz != null) return true;
+            CanvasMain canvasMain = CanvasMain.instance;
+            if (canvasMain == null || canvasMain.canvas_ui == null) return false;
 
-        public static bool PrefixSelectedInfoWhenOpeningStatus(string __0, bool __1)
-        {
-            if(!abrindoStatus)return true;
-            Debug.LogWarning("[Observatorio] STATUS_INFO_PREFIX_SKIP: chamada auxiliar "+(__0??"(null)")+" ignorada dentro do escopo StatsWindow.OnEnable.");
-            return false;
-        }
-
-        public static void StatsWindowPostfix(bool __state)
-        {
-            abrindoStatus=__state;
-            Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX: escopo de protecao restaurado apos StatsWindow.OnEnable.");
-        }
-
-        private static string ListarAssinaturas(MethodInfo[] methods,string nome)
-        {
-            List<string> assinaturas=new List<string>();
-            for(int i=0;i<methods.Length;i++)if(methods[i].Name==nome)assinaturas.Add(methods[i].ToString());
-            return string.Join(" || ",assinaturas.ToArray());
-        }
-
-        private static string FecharJanelaStatusIncompleta(object instance)
-        {
-            Component componente=instance as Component;
-            if(componente==null || componente.gameObject==null)return "instancia StatsWindow indisponivel";
-            Type tipoScroll=BuscarTipoCarregado("ScrollWindow","ScrollWindow, Assembly-CSharp");
-            Transform cursor=componente.transform;
-            while(cursor!=null)
+            Transform parent = canvasMain.canvas_ui.transform;
+            Transform anterior = parent.Find("ObservatorioDosReinos_BotaoGoverno");
+            if (anterior != null)
             {
-                if(cursor.gameObject!=null && tipoScroll!=null)
-                {
-                    Component scroll=cursor.gameObject.GetComponent(tipoScroll);
-                    if(scroll!=null)
-                    {
-                        cursor.gameObject.SetActive(false);
-                        return "ScrollWindow externo fechado";
-                    }
-                }
-                cursor=cursor.parent;
+                botaoRaiz = anterior.gameObject;
+                return true;
             }
-            componente.gameObject.SetActive(false);
-            return "componente StatsWindow fechado (nenhum ScrollWindow pai localizado)";
+
+            botaoRaiz = new GameObject("ObservatorioDosReinos_BotaoGoverno",
+                typeof(RectTransform), typeof(Image), typeof(Button));
+            botaoRaiz.transform.SetParent(parent, false);
+            RectTransform rect = botaoRaiz.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(16f, -138f);
+            rect.sizeDelta = new Vector2(132f, 42f);
+
+            Image image = botaoRaiz.GetComponent<Image>();
+            image.color = new Color(0.18f, 0.23f, 0.15f, 0.96f);
+            Button button = botaoRaiz.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(ObservatorioJanelaNativa.Abrir);
+
+            GameObject textoObj = new GameObject("Texto_GOVERNO", typeof(RectTransform), typeof(Text));
+            textoObj.transform.SetParent(botaoRaiz.transform, false);
+            RectTransform textoRect = textoObj.GetComponent<RectTransform>();
+            textoRect.anchorMin = Vector2.zero;
+            textoRect.anchorMax = Vector2.one;
+            textoRect.offsetMin = new Vector2(4f, 2f);
+            textoRect.offsetMax = new Vector2(-4f, -2f);
+            Text texto = textoObj.GetComponent<Text>();
+            texto.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (texto.font == null) texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            texto.fontSize = 15;
+            texto.fontStyle = FontStyle.Bold;
+            texto.alignment = TextAnchor.MiddleCenter;
+            texto.color = new Color(1f, 0.78f, 0.35f, 1f);
+            texto.text = "GOVERNO";
+            texto.supportRichText = false;
+
+            botaoRaiz.transform.SetAsLastSibling();
+            Debug.Log("[Observatorio] NATIVE_WINDOW_BUTTON_CREATED: botão GOVERNO no CanvasMain.canvas_ui.");
+            return true;
         }
-
-        public static Exception StatsWindowFinalizer(Exception __exception, object __instance, bool __state)
-        {
-            // Restore the previous scope on success and exception, including nested activations.
-            abrindoStatus=__state;
-            if(__exception==null)return null;
-            if(!(__exception is NullReferenceException))return __exception;
-            string trace=__exception.StackTrace??"";
-            if(trace.IndexOf("showWhoIsSelected",StringComparison.OrdinalIgnoreCase)<0 &&
-               trace.IndexOf("showWorldTipSelected",StringComparison.OrdinalIgnoreCase)<0)return __exception;
-            try
-            {
-                string fechamento=FecharJanelaStatusIncompleta(__instance);
-                Debug.LogWarning("[Observatorio] FINALIZER ACIONADO: NullReference no status nativo; "+fechamento+". Stack="+trace.Replace("\r"," ").Replace("\n"," | "));
-                Abrir();
-                if(instancia!=null && instancia.textoEstado!=null)
-                    instancia.textoEstado.text="A janela nativa falhou ao inicializar. A janela incompleta foi fechada e o painel alternativo foi aberto.";
-                return null;
-            }
-            catch(Exception ex){Debug.LogWarning("[Observatorio] Fallback visual falhou: "+ex.GetType().Name+": "+ex.Message);return __exception;}
-        }
-
-        private void Start()
-        {
-            if(faixaAlternativa!=null)faixaAlternativa.SetActive(true);
-            if(textoDiagnostico!=null)textoDiagnostico.text="OBSERVATORIO " + BuildTag + " | UI iniciada. Procure o botao GOV ou o atalho GOVERNO.";
-            Debug.Log("[Observatorio] Canvas, botao reserva e painel admin prontos. Screen="+Screen.width+"x"+Screen.height+" safeArea="+Screen.safeArea);
-        }
-
-        private void OnDestroy(){if(instancia==this)instancia=null;}
-
-        private void DefinirAbertoInterno(bool valor){DefinirAberto(valor);}
     }
 
     public sealed class PoliticaDoReino
@@ -877,6 +488,36 @@ namespace ObservatorioDosReinos
     public class Main : BasicMod<Main>
     {
         private static EstadoPolitico estadoPolitico;
+        private bool uiPendente;
+        private bool janelaNativaPronta;
+        private int quadrosDesdeCarga;
+
+        private void Update()
+        {
+            if (!uiPendente) return;
+            quadrosDesdeCarga++;
+            if (quadrosDesdeCarga % 30 != 0) return;
+            try
+            {
+                if (CanvasMain.instance == null || CanvasMain.instance.canvas_ui == null) return;
+                if (!janelaNativaPronta)
+                {
+                    ObservatorioJanelaNativa.Inicializar();
+                    janelaNativaPronta = ObservatorioAtalhoGov.TentarCriar();
+                    if (janelaNativaPronta) LogInfo("JANELA_NATIVA_PRONTA: Observatório registrado como janela do WorldBox.");
+                }
+                else
+                {
+                    ObservatorioAtalhoGov.TentarCriar();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (quadrosDesdeCarga % 300 == 0)
+                    LogInfo("JANELA_NATIVA_AGUARDANDO: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
         protected override void OnModLoad()
         {
             estadoPolitico=new EstadoPolitico();
@@ -888,9 +529,9 @@ namespace ObservatorioDosReinos
             LeitorSeguroDoMundo.Resumo mundo=LeitorSeguroDoMundo.Inspecionar();
             LogInfo("Diagnostico do mundo: mapa="+mundo.MapaEncontrado+", reinos="+mundo.Reinos+", cidades="+mundo.Cidades+", unidades="+mundo.Unidades+".");
             LogInfo("Diagnostico de API (somente leitura): "+mundo.Diagnostico);
-            try{MenuAdministracaoOverlay.CriarSeNecessario();LogInfo("UI administrativa Canvas solicitada; confirme CANVAS_CREATED/CANVAS_NOT_CREATED no log. O atalho GOVERNO fica visivel como reserva.");}
-            catch(Exception ex){LogInfo("UI administrativa indisponivel nesta build: "+ex.GetType().Name+": "+ex.Message);}
-            LogInfo("Modo seguro: nenhuma entidade nativa foi alterada pelas opcoes atuais.");
+            uiPendente = true;
+            LogInfo("Inicialização da janela administrativa nativa agendada; nenhuma alteração será aplicada à janela nativa de status.");
+            LogInfo("As ações políticas, diplomáticas e de RPG são registros locais da sessão; integração com os reinos nativos continua pendente.");
         }
     }
 }
