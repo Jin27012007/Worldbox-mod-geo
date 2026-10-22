@@ -363,7 +363,7 @@ namespace ObservatorioDosReinos
             image.color = new Color(0.30f, 0.33f, 0.25f, 1f);
             Button button = go.GetComponent<Button>();
             button.targetGraphic = image;
-            button.onClick.AddListener(acao);
+            button.onClick.AddListener(delegate { acao(); });
             LayoutElement le = go.GetComponent<LayoutElement>();
             le.preferredHeight = 42f;
             le.minHeight = 38f;
