@@ -1,21 +1,27 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto original para acrescentar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado: WorldBox Android 0.51.4 com NeoModLoader.
+Projeto original para acrescentar governo/diplomacia ao controle nativo de rei/rainha. Alvo informado: WorldBox Android 0.51.4 + NeoModLoader.
 
-## Estado atual — `0.5.4-dev`
-- UI Unity Canvas com abas de Governo, Diplomacia, Reuniões e RPG, campos, toggles e botões de demonstração.
-- Botão `GOV` tenta aparecer próximo ao status nativo; um atalho `GOVERNO` serve de reserva.
-- A UI tem diagnóstico de resolução/área segura, estado do Canvas e localização do botão; a instalação Harmony registra `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`.
-- A compilação independente do fonte contra stubs Unity/NML passou no GitHub Actions com **0 erros e 0 avisos**. Essa é uma verificação de sintaxe/tipos internos, não uma DLL instalável e não prova compatibilidade real com as assemblies do jogo.
+## 0.5.5-dev — mudanças principais
+- Corrigida a arquitetura do Canvas: o Canvas persistente é a raiz e `SafeAreaRoot` é um filho dimensionado por `Screen.safeArea`. A versão anterior aplicava âncoras de safe area diretamente no objeto Canvas, o que poderia provocar sumiço/escala errada ao girar a tela.
+- A proteção Harmony agora é tentada antes de construir a UI, então falha visual não deve impedir a proteção de status.
+- Prefix preventivo tenta ignorar somente `showWhoIsSelected`/`showWorldTipSelected` chamado na cadeia de `StatsWindow.OnEnable`, permitindo que a janela termine de inicializar sem atualizar a dica auxiliar naquele momento. Fora desse contexto, deixa a rotina original funcionar.
+- Finalizer de `StatsWindow.OnEnable` permanece como segunda barreira; logs distinguem prefix/finalizer instalados e acionados.
+- O atalho `GOVERNO` fica visível mesmo que o botão `GOV` seja inserido na barra nativa.
 
-## Falha nativa ainda em aberto
-A captura do telefone mostra `NullReferenceException` em `PowerTabController.showWhoIsSelected(String, Boolean)` dentro de `StatsWindow.OnEnable()`. A janela deixa de renderizar corretamente e some em landscape. A proteção do mod não foi confirmada funcionando no aparelho.
+## Inspeção real da assembly enviada
+O IL da `Assembly-CSharp.dll` do pacote de referência contém `StatsWindow.OnEnable` e `PowerTabController.showWorldTipSelected(String, Boolean)`. A abertura do status chama a rotina de seleção/tooltip e esta consulta o objeto selecionado, biblioteca de power tabs e callback de tooltip. Isso torna plausível evitar essa atualização auxiliar apenas durante a inicialização do status. Porém o log real do aparelho menciona `showWhoIsSelected`, que não existe na assembly entregue, então a causa nula exata ainda não está identificada.
 
-## Incompatibilidade na assembly de referência
-O pacote de referência enviado contém `Assembly-CSharp-Publicized.dll` e `Assembly-CSharp.dll` que, pela inspeção de identificadores, expõem `SelectedPowerTabTopButtons` e `showWorldTipSelected`, mas não os nomes `SelectedPowerTabButtons` / `showWhoIsSelected` da stack real. As assemblies fornecidas, portanto, não correspondem à versão/runtime que originou a captura, apesar de a informação de versão visível ser semelhante. O campo nulo exato segue desconhecido.
+## Estado de compilação
+- A verificação anterior contra stubs C# passou com 0 erros e 0 avisos.
+- A revisão 0.5.5-dev precisa de sua própria execução do CI.
+- Isso não é uma DLL instalável nem uma compilação contra a API exata de WorldBox/NML. As DLLs proprietárias não são incluídas no repositório público.
 
-## O que falta para compilar de verdade
-Uma DLL instalável precisa ser compilada contra as assemblies privadas exatas de WorldBox 0.51.4 + NML. Essas DLLs não serão copiadas para o repositório público. O código atual ainda não foi compilado contra elas nem validado no Android.
+## Teste dirigido
+1. Faça backup e instale o ZIP desta branch.
+2. Em retrato e paisagem, confirmar a faixa `OBSERVATORIO 0.5.5-dev` e o atalho `GOVERNO`.
+3. Verificar os logs `STATUS_INFO_PREFIX_INSTALLED`, `STATUS_WINDOW_FINALIZER_INSTALLED` e `CANVAS_CREATED`.
+4. Ao abrir status do reino, procurar `STATUS_INFO_PREFIX_SKIP`. A janela deve terminar de inicializar. Se der erro, preservar o log completo para distinguir falha de patch e exceção nativa.
 
-## Próximo teste útil
-Após instalar o ZIP desta branch com backup, procure `OBSERVATORIO 0.5.4-dev` e `GOVERNO`. No log, confira `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`; ao pressionar o status, procure `FINALIZER ACIONADO`. Sem a faixa e os logs, não devemos depurar layout nem assumir que o patch carregou.
+## Limites
+As opções de administração são ainda rascunhos, sem alterações reais de reinos ou diplomacia. A correção precisa ser confirmada no aparelho. Não incluir DLLs do jogo/loader nem copiar código/assets de Worldfall.
