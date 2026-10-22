@@ -1,29 +1,23 @@
-# Teste Android — `0.5.0-dev`
+# Teste Android — 0.5.1-dev
 
-## Antes de atualizar
-- Faça backup da pasta atual do Observatório dos Reinos e mantenha um mundo descartável.
-- Baixe o ZIP do ramo `scaffold/observatorio-dos-reinos`. Não altere a pasta do Worldfall.
+## Diagnóstico da UI
+1. Faça backup da pasta do Observatório dos Reinos e instale o ZIP do branch `scaffold/observatorio-dos-reinos`.
+2. Em retrato, procure a faixa `OBSERVATORIO 0.5.1-dev` e o atalho `GOVERNO` perto do topo, mas abaixo da barra de estado.
+3. Toque em `GOVERNO`: a janela deve abrir com abas Governo, Diplomacia, Reuniões e RPG.
+4. Gire para paisagem. A faixa e o atalho devem continuar visíveis; use o atalho para abrir/fechar de novo.
+5. Toque no botão nativo de status do reino. Se o fallback rodar, o log deverá conter `FINALIZER ACIONADO` e o painel alternativo deve abrir.
 
-## UI do Observatório
-1. Abra o WorldBox e carregue um mundo.
-2. Procure um pequeno botão `GOV` imediatamente acima do botão nativo de informações. Se a barra nativa não tiver sido localizada, procure o botão reserva `GOVERNO` no canto superior esquerdo.
-3. Toque nele. A janela deve aparecer por cima do jogo, adaptada à tela, com abas Governo, Diplomacia, Reuniões e RPG.
-4. Teste a rolagem, os campos de texto, toggles, botões e a alternância de abas.
-5. Repita em retrato e paisagem.
-
-## Fallback da janela nativa de status
-1. Possua/controle um rei como nos testes anteriores.
-2. Toque no botão nativo de informações/status do reino.
-3. Se a falha conhecida reaparecer como `NullReferenceException` dentro do caminho `showWhoIsSelected` ou `showWorldTipSelected` durante `StatsWindow.OnEnable`, o patch tenta fechar a janela nativa incompleta e abrir o painel alternativo, sem propagar essa exceção conhecida.
-4. Outros tipos de exceção não são suprimidos.
-
-## Logs úteis
+## Mensagens úteis do log
+- `Canvas, botao reserva e painel admin prontos`
 - `UI administrativa via Canvas criada`
-- `Protecao de fallback instalada para erro NullReference no status do reino`
 - `Botao de governo inserido acima do botao nativo de informacoes`
-- `Interceptado NullReference na UI nativa de status`
+- `FINALIZER ACIONADO: NullReference no status nativo`
 
-## Interpretação
-- Se o mod não carregar ou se as mensagens do Observatório não aparecerem, a revisão atual não foi compilada/executada ou houve erro anterior ao `OnModLoad`.
-- Se o fallback do status não aparecer, enviar a stack trace completa: os nomes do assembly público que recebemos não coincidem exatamente com os da stack atual do aparelho.
-- O menu é visual; nenhuma das opções altera reinos, cidades, unidades, guerra ou diplomacia nesta fase.
+## Como interpretar
+- Sem faixa visível e sem essas mensagens: fonte não compilado/carregado, ou erro antes da inicialização. Não tente corrigir posição de UI ainda.
+- Faixa presente mas atalho ausente: erro de posicionamento/Hierarchy ou o elemento não está ativo; envie captura e as mensagens.
+- Atalho presente mas tocar não abre: bug no callback da UI; envie captura e stack trace.
+- O erro nativo continua sem `FINALIZER ACIONADO`: o patch Harmony não se instalou ou a exceção ocorre em método diferente. Envie stack completa; não vamos simplesmente esconder erros.
+- Se o botão funciona em retrato, mas some em paisagem, a faixa de diagnóstico deverá mostrar resolução/área segura para a orientação nova; envie captura nos dois sentidos.
+
+A UI continua em protótipo: botões demonstrativos não alteram entidades do mundo.
