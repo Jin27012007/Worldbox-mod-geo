@@ -70,6 +70,7 @@ namespace UnityEngine
     {
         private static readonly List<Object> AllObjects = new List<Object>();
         protected Object() { AllObjects.Add(this); }
+        public int GetInstanceID() { return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this); }
 
         public static Object[] FindObjectsOfTypeAll(Type type)
         {
