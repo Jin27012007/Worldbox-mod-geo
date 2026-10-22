@@ -1,22 +1,22 @@
-# Teste Android — `0.5.2-dev`
+# Protocolo de teste Android — 0.5.4-dev
 
-O objetivo agora é descobrir por que o painel e o patch não aparecem antes de tentar outra correção cosmética.
+## Antes de instalar
+- Faça backup da pasta do Observatório dos Reinos.
+- Use somente o ZIP da branch scaffold/observatorio-dos-reinos e substitua apenas os arquivos desse mod.
+- O build checker passa contra stubs; a DLL de mod ainda não foi compilada contra assemblies privadas do jogo.
 
-1. Faça backup da pasta atual do Observatório dos Reinos.
-2. Baixe e instale o ZIP do branch `scaffold/observatorio-dos-reinos`.
-3. Em retrato, procure o banner `OBSERVATORIO 0.5.2-dev` e o botão `GOVERNO`.
-4. Abra o log a partir do início do carregamento e procure:
-   - `[Observatorio] Canvas, botao reserva e painel admin prontos`
-   - `[Observatorio] Protecao de fallback instalada` ou a mensagem explicando por que não foi possível instalar
-   - `UI administrativa via Canvas criada`
-5. Abra o status nativo do reino e procure `FINALIZER ACIONADO`.
-6. Gire para landscape; anote se o banner e o botão ainda existem.
+## Conferir a inicialização
+1. Abra o WorldBox em retrato e procure a faixa `OBSERVATORIO 0.5.4-dev` e o botão `GOVERNO`.
+2. No log, localize `Canvas, botao reserva e painel admin prontos` e `UI administrativa via Canvas criada`.
+3. Procure `STATUS_PATCH_INSTALLED` ou `STATUS_PATCH_NOT_INSTALLED`. Se falhou, preserve a mensagem e a lista de assinaturas Harmony/OnEnable.
+4. Toque no botão `GOVERNO`; teste as quatro abas, os campos de texto, botões e rolagem.
+5. Gire para landscape; confirme que a faixa e o atalho continuam visíveis.
 
-## Decisão com base no resultado
-- **Não aparecem as mensagens de carga:** mod não compilado/carregado nesta revisão; não ajustar mais layout até resolver isso.
-- **Mensagens aparecem, mas não há banner:** revisar `Canvas`, sorting order, lifecycle e `Screen.safeArea`.
-- **Banner e botão aparecem, mas clique não funciona:** investigar `GraphicRaycaster`, `EventSystem`, raycast targets e hierarquia.
-- **Status dá erro, mas não há `FINALIZER ACIONADO`:** patch Harmony não foi instalado ou o método/assinatura real é diferente; obter metadata da assembly 0.51.4 antes de mudar o patch.
-- **Finalizer é acionado, mas painel não abre:** investigar sequência de `OnEnable`/`SetActive`/Canvas, sem suprimir outras exceções.
+## Testar status nativo
+1. Possua um rei como nos testes anteriores.
+2. Pressione o botão nativo de status.
+3. Se o finalizer rodar, o log conterá `FINALIZER ACIONADO` e o painel alternativo deverá abrir. Se a exceção ocorrer sem esse registro, o patch não interceptou o método em execução.
+4. Não considere o erro corrigido apenas porque a janela fechou; precisamos confirmar que o status funciona ou que o fallback é estável.
 
-Botões atuais são apenas rascunhos. Não testar mudanças de gameplay nesta etapa. Guarde o log completo em vez de enviar apenas a parte da exceção.
+## Se a faixa/log não aparecer
+Isso indica que a revisão correta não está a correr ou que a UI não foi criada; nesse caso não vale a pena ajustar posições visuais. Envie o log completo desde o arranque do mod.
