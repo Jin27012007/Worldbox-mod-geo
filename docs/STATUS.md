@@ -1,28 +1,32 @@
-# Status técnico — 0.5.0-dev
+# Status técnico — 0.5.1-dev
 
-## Evidência recebida do Android (WorldBox 0.51.4)
-- O usuário consegue possuir/controlar um rei.
-- Ao abrir a janela nativa de status do reino, a janela fica cortada e o log repete `NullReferenceException`.
-- Stack trace fornecido: `PowerTabController.showWhoIsSelected(String, Boolean)` -> `StatsWindow.OnEnable()` -> `WindowMetaGeneric<T>.OnEnable()` -> `GameObject.SetActive` -> `ScrollWindow.show(...)` / `PowerTabLibrary.defaultMainInfoClick(...)` -> `SelectedPowerTabButtons.clickOpenMain()` -> `EventSystem.Update()`.
-- O erro aparece no caminho de abertura da janela de status, associado à referência nula no método de seleção/status. O aviso de `discord_game_sdk` é separado.
-- O arquivo `Assembly-CSharp-Publicized.dll` no pacote de jogo que foi possível inspecionar não corresponde exatamente à pilha mostrada pelo aparelho: ele contém `showWorldTipSelected` e `SelectedPowerTabTopButtons`, enquanto o log atual mostra `showWhoIsSelected` e `SelectedPowerTabButtons`. Portanto, a causa imediata (qual campo está nulo na runtime exata) ainda não está provada; não marcar como correção definitiva.
+## Evidência de runtime do usuário
+- WorldBox Android 0.51.4, NeoModLoader ativo.
+- Ao tocar no status nativo do reino, repete-se `NullReferenceException` na chamada `PowerTabController.showWhoIsSelected(String, Boolean)` dentro de `StatsWindow.OnEnable()`, originada por `SelectedPowerTabButtons.clickOpenMain()`.
+- Sair da tela não repara a janela; fica cortada. Na orientação horizontal, painel e janela somem sem um atalho visível.
+- A assembly publicizada fornecida diverge no nome de métodos da stack ao vivo. Não sabemos ainda qual campo real está nulo.
+- O painel do Observatório das versões anteriores não foi encontrado pelo usuário, logo não pode ser considerado funcional mesmo existindo código-fonte.
 
-## Mudanças em 0.5.0-dev
-- Substituí o overlay baseado em `OnGUI` por uma UI real de Unity Canvas/Unity UI, porque a versão anterior nunca apareceu visivelmente para o usuário.
-- O painel é Screen Space Overlay com ordem alta, escala ajustável a retrato/paisagem, quatro abas (Governo, Diplomacia, Reuniões, RPG), `InputField`, `Toggle`, botões e mensagens de rascunho.
-- Tenta reutilizar sprites de botão e painel das janelas nativas do jogo, quando encontradas.
-- Tenta localizar `SelectedPowerTabButtons` ou `SelectedPowerTabTopButtons` e inserir um botão `GOV` imediatamente antes/acima do botão nativo de abrir informações. Quando não acha a hierarquia nativa, oferece um botão reserva `GOVERNO` no alto da tela.
-- Adiciona via reflexão uma finalizer Harmony para `StatsWindow.OnEnable`. Ela só intercepta `NullReferenceException` quando a stack contém `showWhoIsSelected` ou `showWorldTipSelected`; fecha a janela nativa parcialmente aberta e mostra o painel de administração alternativo. Essa é uma recuperação segura da interface, não prova de que a referência nula original foi corrigida.
+## Mudanças em `0.5.1-dev`
+- UI foi construída via Canvas/Unity UI, não OnGUI.
+- Adicionado layout que restringe o Canvas à `Screen.safeArea`, atualizando após mudanças de orientação.
+- O painel passa a usar margens quase completas da área segura.
+- O atalho reserva `GOVERNO` fica numa posição mais baixa no topo, evitando a área de barra de status e permanecendo disponível quando o botão nativo não for descoberto.
+- Adicionada faixa visível de diagnóstico: versão, resolução, área segura, estado ativo do Canvas e se o botão nativo foi localizado.
+- Loga explicitamente a criação da UI e registra a stack capturada se o finalizer for acionado.
+- A recuperação Harmony continua limitada à `NullReferenceException` cuja stack inclui `showWhoIsSelected` ou `showWorldTipSelected`; ela fecha o objeto `StatsWindow` e tenta abrir o painel alternativo. Não afirma corrigir o objeto nulo original.
 
-## O que ainda precisa de teste
-- A revisão 0.5.0-dev ainda não foi compilada externamente nem validada no aparelho.
-- Confirmar no log `UI administrativa via Canvas criada`, `Botao de governo inserido acima do botao nativo...` e `Protecao de fallback instalada...`.
-- Confirmar que aparece o botão GOV junto ao botão de informações. Se não encontrar a hierarquia nativa, usar o botão reserva no alto da tela.
-- Ao acionar o status nativo, confirmar que a exceção conhecida não se repete e o painel alternativo abre. Se o problema persistir, a runtime real continua diferente da assembly fornecida ou a assinatura do método Harmony não foi localizada.
-- Testar todas as abas, campos e toque em retrato e paisagem.
+## Resultado da revisão de código
+- Inspeção estrutural simples de delimitadores feita; ainda não é uma compilação C#.
+- Código não compilado por toolchain independente nem testado em runtime nesta versão.
 
-## Limites do protótipo
-- As opções são apenas rascunhos locais; ainda não alteram políticas, tesouro, unidades, cidades, alianças ou guerras.
-- O menu ainda não detecta de forma confirmada o rei possuído nem mostra dados reais do reino.
-- Ainda não distribuímos assets do jogo; os sprites nativos são lidos do próprio jogo instalado.
-- Não incluir DLLs do jogo ou loader nem reutilizar código/asset de Worldfall.
+## Teste obrigatório no Android
+1. Instalar com backup e abrir em orientação vertical.
+2. Confirmar se aparecem a faixa `OBSERVATORIO 0.5.1-dev`, o botão `GOVERNO` e o painel após clicar nele.
+3. Girar para horizontal: a faixa de diagnóstico e o botão de reabertura devem continuar na área segura; testar abrir/fechar.
+4. Tocar no status nativo do reino e confirmar se surge `FINALIZER ACIONADO` no log e se o painel alternativo abre.
+5. Enviar captura e log se a faixa ou botão não aparecer. Se as mensagens de inicialização não aparecerem, a versão não foi carregada ou houve erro antes de `OnModLoad`.
+
+## Segurança
+- As opções do painel são ainda rascunhos visuais; nenhuma entidade nativa é alterada.
+- Não incluir DLLs de jogo/loader nem código/assets do Worldfall.
