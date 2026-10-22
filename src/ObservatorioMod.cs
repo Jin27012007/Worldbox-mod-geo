@@ -86,7 +86,7 @@ namespace ObservatorioDosReinos
     {
         private static MenuAdministracaoOverlay instancia;
         private const string IdBotao = "Observatorio_Admin_Button";
-        private const string BuildTag = "0.5.7-dev";
+        private const string BuildTag = "0.5.8-dev";
         private Canvas canvas;
         private RectTransform painel;
         private GameObject faixaAlternativa;
@@ -730,8 +730,9 @@ namespace ObservatorioDosReinos
     return null;
 }
 
-        public static void StatsWindowPrefix()
+        public static void StatsWindowPrefix(out bool __state)
         {
+            __state=abrindoStatus;
             abrindoStatus=true;
             Debug.Log("[Observatorio] STATUS_WINDOW_OPENING: escopo de protecao ativado antes de StatsWindow.OnEnable.");
         }
@@ -743,10 +744,10 @@ namespace ObservatorioDosReinos
             return false;
         }
 
-        public static void StatsWindowPostfix()
+        public static void StatsWindowPostfix(bool __state)
         {
-            abrindoStatus=false;
-            Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX: escopo de protecao limpo apos StatsWindow.OnEnable.");
+            abrindoStatus=__state;
+            Debug.Log("[Observatorio] STATUS_WINDOW_POSTFIX: escopo de protecao restaurado apos StatsWindow.OnEnable.");
         }
 
         private static string ListarAssinaturas(MethodInfo[] methods,string nome)
@@ -779,11 +780,10 @@ namespace ObservatorioDosReinos
             return "componente StatsWindow fechado (nenhum ScrollWindow pai localizado)";
         }
 
-        public static Exception StatsWindowFinalizer(Exception __exception, object __instance)
+        public static Exception StatsWindowFinalizer(Exception __exception, object __instance, bool __state)
         {
-            // The finalizer runs on both success and exception; always clear the
-            // status scope so later ordinary selection calls are not suppressed.
-            abrindoStatus=false;
+            // Restore the previous scope on success and exception, including nested activations.
+            abrindoStatus=__state;
             if(__exception==null)return null;
             if(!(__exception is NullReferenceException))return __exception;
             string trace=__exception.StackTrace??"";
