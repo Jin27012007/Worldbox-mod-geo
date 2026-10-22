@@ -41,6 +41,7 @@ namespace UnityEngine
         public T AddComponent<T>() where T : Component, new() => new T();
         public Component AddComponent(Type type) => null;
         public T GetComponent<T>() where T : class => default(T);
+        public Component GetComponent(Type type) => null;
         public T GetComponentInChildren<T>(bool includeInactive = false) where T : class => default(T);
     }
     public class Transform : Component
