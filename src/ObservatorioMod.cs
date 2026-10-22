@@ -86,7 +86,7 @@ namespace ObservatorioDosReinos
     {
         private static MenuAdministracaoOverlay instancia;
         private const string IdBotao = "Observatorio_Admin_Button";
-        private const string BuildTag = "0.5.3-dev";
+        private const string BuildTag = "0.5.4-dev";
         private Canvas canvas;
         private RectTransform painel;
         private GameObject faixaAlternativa;
