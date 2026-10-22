@@ -1,8 +1,8 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.5.7-dev",
-  "description": "Canvas responsivo, escopo Harmony explícito e diagnóstico de assemblies em runtime.",
+  "version": "0.5.8-dev",
+  "description": "Canvas responsivo, escopo Harmony aninhado-seguro e diagnóstico de assemblies em runtime.",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
