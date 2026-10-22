@@ -523,28 +523,81 @@ namespace ObservatorioDosReinos
                 Type harmonyType=Type.GetType("HarmonyLib.Harmony, 0Harmony");
                 Type harmonyMethodType=Type.GetType("HarmonyLib.HarmonyMethod, 0Harmony");
                 Type statsType=Type.GetType("StatsWindow, Assembly-CSharp");
-                if(harmonyType==null||harmonyMethodType==null||statsType==null){Debug.LogWarning("[Observatorio] Protecao do status nativo indisponivel: API Harmony/StatsWindow ausente.");return;}
-                MethodInfo original=statsType.GetMethod("OnEnable",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
+                if(harmonyType==null||harmonyMethodType==null||statsType==null)
+                {
+                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: ausente Harmony ou StatsWindow. Harmony="+(harmonyType!=null)+", HarmonyMethod="+(harmonyMethodType!=null)+", StatsWindow="+(statsType!=null));
+                    return;
+                }
+                MethodInfo[] candidatos=statsType.GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.DeclaredOnly);
+                List<string> ons=new List<string>();
+                for(int i=0;i<candidatos.Length;i++)
+                    if(candidatos[i].Name=="OnEnable")ons.Add(candidatos[i].ToString());
+                Debug.Log("[Observatorio] StatsWindow.OnEnable candidates: "+string.Join(" || ",ons.ToArray()));
+
+                MethodInfo original=null;
+                for(int i=0;i<candidatos.Length;i++)
+                    if(candidatos[i].Name=="OnEnable" && candidatos[i].GetParameters().Length==0){original=candidatos[i];break;}
                 MethodInfo finalizer=typeof(MenuAdministracaoOverlay).GetMethod("StatsWindowFinalizer",BindingFlags.Public|BindingFlags.Static);
                 ConstructorInfo ctor=harmonyType.GetConstructor(new Type[]{typeof(string)});
-                ConstructorInfo hmCtor=harmonyMethodType.GetConstructor(new Type[]{typeof(MethodInfo)});
-                if(original==null||finalizer==null||ctor==null||hmCtor==null){Debug.LogWarning("[Observatorio] Protecao do status nativo nao encontrou os metodos requeridos.");return;}
+                if(original==null||finalizer==null||ctor==null)
+                {
+                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: alvo/ctor/finalizer nao encontrado. OnEnable="+(original!=null)+", finalizer="+(finalizer!=null)+", HarmonyCtor="+(ctor!=null));
+                    return;
+                }
+
                 object harmony=ctor.Invoke(new object[]{"com.jin27012007.observatoriodosreinos.statusfallback"});
-                object hm=hmCtor.Invoke(new object[]{finalizer});
                 MethodInfo patch=null;
                 MethodInfo[] ms=harmonyType.GetMethods(BindingFlags.Public|BindingFlags.Instance);
                 for(int i=0;i<ms.Length;i++)
                 {
                     if(ms[i].Name!="Patch")continue;
                     ParameterInfo[] ps=ms[i].GetParameters();
-                    if(ps.Length==5&&ps[0].ParameterType==typeof(MethodBase)){patch=ms[i];break;}
+                    if(ps.Length==5 && typeof(MethodBase).IsAssignableFrom(ps[0].ParameterType)){patch=ms[i];break;}
                 }
-                if(patch==null){Debug.LogWarning("[Observatorio] Harmony.Patch compativel nao encontrado.");return;}
-                patch.Invoke(harmony,new object[]{original,null,null,null,hm});
+                if(patch==null)
+                {
+                    Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: Harmony.Patch signature nao reconhecida. Sobrecargas: "+ListarAssinaturas(ms,"Patch"));
+                    return;
+                }
+                object hm=ConstruirHarmonyMethod(harmonyMethodType,finalizer);
+                if(hm==null){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: nao foi possivel construir HarmonyMethod.");return;}
+                object[] args=new object[]{original,null,null,null,hm};
+                patch.Invoke(harmony,args);
                 patchInstalado=true;
-                Debug.Log("[Observatorio] Protecao de fallback instalada para erro NullReference no status do reino.");
+                Debug.Log("[Observatorio] STATUS_PATCH_INSTALLED: "+original.DeclaringType.FullName+"."+original.Name+" | "+original);
             }
-            catch(Exception ex){Debug.LogWarning("[Observatorio] Protecao do status nativo falhou sem interromper o mod: "+ex.GetType().Name+": "+ex.Message);}
+            catch(Exception ex){Debug.LogWarning("[Observatorio] STATUS_PATCH_NOT_INSTALLED: "+ex.GetType().Name+": "+ex.Message);}
+        }
+
+        private static object ConstruirHarmonyMethod(Type harmonyMethodType,MethodInfo method)
+        {
+            try
+            {
+                ConstructorInfo[] cs=harmonyMethodType.GetConstructors(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
+                for(int i=0;i<cs.Length;i++)
+                {
+                    ParameterInfo[] ps=cs[i].GetParameters();
+                    if(ps.Length==1 && ps[0].ParameterType==typeof(MethodInfo))return cs[i].Invoke(new object[]{method});
+                }
+            }
+            catch(Exception ex){Debug.Log("[Observatorio] HarmonyMethod ctor probe: "+ex.GetType().Name);}
+            try
+            {
+                object hm=Activator.CreateInstance(harmonyMethodType,true);
+                FieldInfo f=harmonyMethodType.GetField("method",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
+                if(f!=null){f.SetValue(hm,method);return hm;}
+                PropertyInfo p=harmonyMethodType.GetProperty("method",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance);
+                if(p!=null && p.CanWrite){p.SetValue(hm,method,null);return hm;}
+            }
+            catch(Exception ex){Debug.Log("[Observatorio] HarmonyMethod fallback probe: "+ex.GetType().Name);}
+            return null;
+        }
+
+        private static string ListarAssinaturas(MethodInfo[] methods,string nome)
+        {
+            List<string> assinaturas=new List<string>();
+            for(int i=0;i<methods.Length;i++)if(methods[i].Name==nome)assinaturas.Add(methods[i].ToString());
+            return string.Join(" || ",assinaturas.ToArray());
         }
 
         public static Exception StatsWindowFinalizer(Exception __exception, object __instance)
