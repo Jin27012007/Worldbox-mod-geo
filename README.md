@@ -1,21 +1,23 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto original para acrescentar governo e diplomacia ao controle nativo de rei/rainha. Alvo informado: WorldBox Android 0.51.4 + NeoModLoader.
+Projeto original para construir uma interface de governo e diplomacia para WorldBox Android 0.51.4 + NeoModLoader.
 
-## 0.5.9-dev
-- Canvas em tela cheia com `SafeAreaRoot` interno e atalho reserva `GOVERNO` que deve permanecer acessível na rotação.
-- Prefix Harmony tenta bloquear a atualização auxiliar de seleção/tooltip apenas durante a inicialização do status nativo. Postfix e finalizer restauram o escopo usando `__state`.
-- A procura de Harmony agora é tolerante a diferenças no carregamento de assemblies e registra FullName/MVID de todos os tipos relevantes **antes de decidir se consegue aplicar patches**.
-- O finalizer procura fechar a janela externa `ScrollWindow`, não apenas o componente interno.
+## 0.6.0-dev — janela nativa experimental
 
-## Build confirmado
-Execução GitHub Actions: https://github.com/Jin27012007/Worldbox-mod-geo/actions/runs/39850928817
-- Fonte compilado contra stubs: 0 warnings / 0 errors.
-- Smoke test: prefix só bloqueia dentro do escopo de status e postfix/finalizer restauram o estado.
-- Isso não gera DLL instalável e não valida a API real. A build com DLLs reais está preparada em `tests/CompileWorldBoxRefs.csproj`, mas é pulada em runners públicos porque as referências locais privadas não estão em `references/`.
+A interface foi reescrita para usar `AbstractWideWindow<T>` do NeoModLoader, que cria uma janela baseada no prefab nativo `windows/empty` e a registra no sistema de janelas. O botão `GOVERNO` é filho de `CanvasMain.instance.canvas_ui` e chama `ScrollWindow.showWindow("observatorio_dos_reinos")`.
 
-## Erro nativo ainda em aberto
-O log do aparelho usa `showWhoIsSelected`/`SelectedPowerTabButtons`, enquanto as assemblies fornecidas usam `showWorldTipSelected`/`SelectedPowerTabTopButtons`. Hashes, MVIDs e IL estão em [docs/ASSEMBLY_INVESTIGATION.md](docs/ASSEMBLY_INVESTIGATION.md). A causa exata da referência nula ainda não foi provada e a versão 0.5.9-dev não foi confirmada no telefone.
+A nova versão **não instala patches Harmony na janela nativa de status**. Isso devolve ao jogo o fluxo normal de abertura da janela, sem a interceptação de status que o mod anterior tentava fazer. Isso não garante que um bug originado no próprio jogo ou em outro mod tenha sido corrigido.
 
-## Limites
-As ações do painel continuam demonstrativas e não alteram reinos reais. Não considere o erro corrigido até testar a versão no dispositivo e verificar a linha `Runtime assembly fingerprint`.
+A janela contém páginas de Governo, Diplomacia, Reuniões e RPG. Os botões de políticas e de propostas atualizam registros locais durante a sessão; eles **ainda não alteram os reinos, relações diplomáticas, guerras ou cidades reais**.
+
+## Verificação
+
+O repositório contém testes de compilação contra stubs e testes de invariantes do modelo político local. Eles não validam a interface Unity em runtime. Não há ainda confirmação visual da janela no telefone nem uma DLL produzida aqui contra a instalação exata do jogo.
+
+Guia de exemplos fornecido na conversa: https://the-official-worldbox-wiki.fandom.com/wiki/Modding_Code_Examples
+
+Referência adicional de janela nativa no código do NeoModLoader: https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/api/AbstractWindow.cs e https://github.com/WorldBoxOpenMods/ModLoader/blob/36a891b5dcd067be43aa12574338d849c2947001/general/WindowCreator.cs
+
+## Critério de conclusão
+
+Não considere a mudança confirmada até compilar a versão com as referências reais do aparelho, instalá-la e observar no jogo: (1) o botão GOVERNO, (2) abertura/fechamento da janela nativa, (3) navegação nas quatro páginas e (4) abertura normal da janela de status sem patches do Observatório.
