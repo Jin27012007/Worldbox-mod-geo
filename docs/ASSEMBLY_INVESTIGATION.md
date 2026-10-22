@@ -33,3 +33,19 @@ Portanto, o pacote de referência enviado não corresponde exatamente ao runtime
 
 ## Build
 GitHub Actions confirma que o fonte compila contra stubs isolados Unity/NeoModLoader com 0 erros e 0 avisos no SHA `179a62596388e2bb5ccc664ed563bdef6f78ffbc`. Isso é uma verificação de sintaxe e consistência interna, não uma DLL instalável. O projeto `tests/CompileWorldBoxRefs.csproj` permite build contra DLLs reais em `references/`, mas o runner público não tem acesso aos arquivos locais. As referências permanecem excluídas pelo `.gitignore`; uma compilação real precisa ocorrer num ambiente privado/local.
+
+
+## Verificação adicional do APK (2026-10-22)
+O arquivo `worldbox_il2cpp2mono (1).apk` não tem central directory ZIP válido e está truncado perto do final; por isso ferramentas ZIP comuns rejeitam o arquivo. Ainda assim, foi possível percorrer os cabeçalhos ZIP locais, recuperar o conteúdo completo de `Assembly-CSharp.dll` da entrada `assets/Mono/Managed.zip` (o fluxo interno dessa entrada estava disponível até esse ponto) e validar o CRC32 da DLL extraída. O SHA-256 recuperado foi:
+
+`dfe3697f8929e4ecfc3bec154167e3227199b5c6fcd1baf353f379937407bffe`
+
+Esse hash é idêntico ao da `Assembly-CSharp.dll` do pacote `com.mkarpenko.worldbox.zip` já analisado. Portanto, os dois materiais enviados contêm a mesma assembly principal. O nome `showWhoIsSelected` da stack trace do dispositivo continua sem aparecer nessa DLL; a diferença não se explica por esse APK conter uma outra build de `Assembly-CSharp.dll`. O restante do pacote Managed.zip do APK está truncado e não forneceu uma assembly alternativa completa.
+
+## Verificação de APIs Harmony
+A metadata de `0Harmony.dll` confirma:
+- `HarmonyLib.Harmony` tem construtor com uma string.
+- Existe overload `Patch(MethodBase, HarmonyMethod, HarmonyMethod, HarmonyMethod, HarmonyMethod)` (cinco parâmetros).
+- `HarmonyLib.HarmonyMethod` tem construtor que recebe `MethodInfo`.
+
+Assim, a estratégia reflexiva usada no código corresponde às assinaturas encontradas nessa referência de Harmony. Isso confirma a compatibilidade com a DLL enviada, não com uma versão diferente que possa estar carregada no celular.
