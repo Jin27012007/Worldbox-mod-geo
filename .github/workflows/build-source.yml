@@ -8,15 +8,17 @@ on:
 
 jobs:
   source-check:
-    name: Compile source against isolated Unity/NML stubs
+    name: Compile source and exercise status-guard scope
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Show preinstalled .NET SDK
         run: dotnet --info
-      - name: Compile C# source and catch source-level errors
+      - name: Compile C# source against isolated Unity/NML stubs
         run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
+      - name: Exercise the prefix/postfix/finalizer scope
+        run: dotnet run --project tests/CompileStubs.csproj --configuration Release --no-build
       - name: Compile against local real references when safely supplied
         shell: bash
         run: |
@@ -46,8 +48,9 @@ jobs:
         run: |
           {
             echo '## Build interpretation'
-            echo 'Stub-based compilation catches source syntax and internal typing errors.'
-            echo 'A real-reference compile runs only if exact local/private reference DLLs are present under references/.'
+            echo 'Stub compile + smoke test checks source logic around Harmony scope restoration.'
+            echo 'It is not a mod DLL and does not verify real WorldBox/NeoModLoader runtime compatibility.'
+            echo 'A real-reference build runs only if exact local/private reference DLLs are present under references/.'
             echo 'No game/loader DLLs are committed to this public repository.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload build diagnostics
