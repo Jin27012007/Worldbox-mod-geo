@@ -1,0 +1,6 @@
+# Never commit the game / NeoModLoader assemblies to this public repository.
+references/**/*.dll
+references/*.dll
+
+# Keep test-only stubs out of NeoModLoader's recursive source compilation.
+tests/
