@@ -96,7 +96,7 @@ namespace ObservatorioDosReinos
     {
         private const int IdJanela = 490271;
         private static MenuAdministracaoOverlay instancia;
-        private bool aberto;
+        private bool aberto = true;
         private int aba;
         private Rect janela;
         private Vector2 rolagem;
@@ -123,11 +123,11 @@ namespace ObservatorioDosReinos
             {
                 Estilos();
                 float margem = Mathf.Clamp(Screen.width * 0.02f, 8f, 18f);
-                float largAtalho = Mathf.Clamp(Screen.width * 0.22f, 112f, 184f);
-                float altAtalho = Mathf.Clamp(Screen.height * 0.045f, 34f, 48f);
+                float largAtalho = Mathf.Clamp(Screen.width * 0.34f, 150f, 240f);
+                float altAtalho = Mathf.Clamp(Screen.height * 0.055f, 42f, 58f);
                 Color anterior = GUI.color;
                 GUI.color = Color.white;
-                if (GUI.Button(new Rect(margem, margem, largAtalho, altAtalho), aberto ? "Fechar governo" : "Governo", botao)) aberto = !aberto;
+                if (GUI.Button(new Rect(margem, margem, largAtalho, altAtalho), aberto ? "FECHAR PAINEL" : "ABRIR GOVERNO", botao)) aberto = !aberto;
                 if (aberto)
                 {
                     float largura = Mathf.Min(620f, Screen.width - margem * 2f);
@@ -159,7 +159,7 @@ namespace ObservatorioDosReinos
         {
             GUILayout.BeginVertical();
             GUILayout.Label("Painel de administração • protótipo", titulo);
-            GUILayout.Label("Personagem/reino: integração real ainda pendente.", pequeno);
+            GUILayout.Label("PAINEL DE TESTE — ainda não conectado ao rei/reino real.", pequeno);
             GUILayout.BeginHorizontal();
             string[] abas = { "Governo", "Diplomacia", "Reuniões", "RPG" };
             for (int i = 0; i < abas.Length; i++) if (GUILayout.Button(abas[i], botao)) aba = i;
