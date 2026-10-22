@@ -268,7 +268,7 @@ namespace ObservatorioDosReinos
             Button[] botoes = ContentTransform.GetComponentsInChildren<Button>(true);
             for (int i = 0; i < botoes.Length; i++)
             {
-                if (botoes[i].gameObject.name == "Botao_" + nome)
+                if (botoes[i].gameObject.name.StartsWith("Botao_" + nome, StringComparison.Ordinal))
                 {
                     Text t = botoes[i].GetComponentInChildren<Text>(true);
                     if (t != null) t.text = legenda;
