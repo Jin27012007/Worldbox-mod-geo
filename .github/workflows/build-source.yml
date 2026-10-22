@@ -24,7 +24,7 @@ jobs:
           required=(references/NeoModLoader.dll references/Assembly-CSharp-Publicized.dll references/UnityEngine.dll references/UnityEngine.CoreModule.dll references/UnityEngine.UI.dll references/0Harmony.dll)
           missing=0
           for f in "${required[@]}"; do
-            if [ ! -f "${f}" ]; then echo "Missing private reference: ${'$'}f"; missing=1; fi
+            if [ ! -f "${f}" ]; then echo "Missing private reference: ${f}"; missing=1; fi
           done
           if [ "$missing" -eq 1 ]; then
             echo "SKIPPED_PRIVATE_REFERENCES_NOT_PRESENT" > build/real-reference-status.txt
