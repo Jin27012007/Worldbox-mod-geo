@@ -1,34 +1,29 @@
 # Protocolo de testes — Android
 
-## Preparação
-- Fazer backup do diretório de mods e dos mundos importantes.
-- Registrar versões exatas do WorldBox, NeoModLoader e runtime de compilação.
-- Testar separadamente dos mods funcionais existentes.
+## Antes de atualizar
+- Faça uma cópia da pasta atual do Observatório dos Reinos e mantenha um mundo descartável para os testes.
+- O código no ramo de trabalho agora contém regras políticas locais; a build anterior não deve ser tratada como se já contivesse essa atualização.
 
-## Teste 1 — carregamento
-1. Instalar uma build compilada contra as referências do aparelho.
-2. Abrir o jogo e iniciar um mundo de teste descartável.
-3. Confirmar no log uma única inicialização do mod.
-4. Verificar se o jogo inicia sem novas exceções.
+## Teste 1 — carregar o protótipo político
+1. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos`.
+2. Atualize os arquivos do mod com a nova versão do ramo. Não substitua a pasta do Worldfall.
+3. Abra o WorldBox e consulte o log do NeoModLoader.
+4. Procure `Autoteste politico: reinos=2, relacoes=1, tipo=Comercio, opiniao=10.`
+5. Confirme que o jogo abre e que não surgem exceções repetidas.
 
-Aprovação: inicialização única, sem crash, exceção não tratada ou loop de logs.
+Aprovação: log com os dois reinos de teste e a relação de comércio, sem crash.
 
-## Teste 2 — painel de diagnóstico
-1. Abrir/fechar o painel repetidamente.
-2. Confirmar que não altera pausa, velocidade, unidades, cidades ou relações.
-3. Testar orientação de tela quando suportada.
+## Teste 2 — validação de leitura real (futura)
+- A implementação só deve começar depois de confirmar os nomes e as assinaturas dos tipos na assembly exata do WorldBox 0.51.4.
+- Usar um mundo descartável que contenha ao menos dois reinos.
+- Comparar nomes/quantidades do painel com os dados nativos do jogo.
+- Confirmar que abrir/fechar o painel não altera a simulação.
 
-Aprovação: UI abre e fecha sem travar a simulação nem gerar exceções.
+## Teste 3 — mecânicas integradas (futuro)
+- Só testar ações que mudem o mundo depois de adicionar backup/salvaguardas.
+- Confirmar separadamente efeitos de diplomacia, persistência e carregamento de saves.
+- Se houver crash ou erro repetido, desative o mod e restaure a cópia.
 
-## Teste 3 — leitura de reinos
-1. Usar mundo descartável com pelo menos dois reinos.
-2. Comparar os nomes do painel com o jogo.
-3. Deixar a simulação rodar e abrir/fechar o painel várias vezes.
-4. Se a API suportar eventos de criação/destruição de reinos, verificar esses cenários.
-
-Aprovação: dados somente de leitura corretos; nenhum estado alterado.
-
-## Recuperação
-- Em caso de crash ou erro repetitivo, desativar o mod e restaurar backup.
-- Guardar log, versões, etapa do teste e sequência de ações.
-- Não declarar compatibilidade apenas porque compila; executar no aparelho.
+## Diagnóstico de falha
+- Envie a mensagem completa do log e informe se aparece antes ou depois da linha do autoteste.
+- Não tentar adivinhar nomes de APIs ou ocultar exceções; corrigir usando o erro real.
