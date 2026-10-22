@@ -9,6 +9,20 @@ namespace NeoModLoader.api
         protected abstract void OnModLoad();
         protected void LogInfo(string message) { }
     }
+
+    // Test-only shape of the NML native-window base class. This does not emulate game runtime.
+    public abstract class AbstractWideWindow<T> : UnityEngine.MonoBehaviour where T : AbstractWideWindow<T>
+    {
+        public static T Instance { get; protected set; }
+        protected UnityEngine.Transform ContentTransform { get; set; }
+        protected UnityEngine.Transform BackgroundTransform { get; set; }
+        protected abstract void Init();
+        public static T CreateAndInit(string windowId, UnityEngine.Vector2 size = default(UnityEngine.Vector2)) { return default(T); }
+        public void SetSize(UnityEngine.Vector2 size) { }
+        public virtual void OnFirstEnable() { }
+        public virtual void OnNormalEnable() { }
+        public virtual void OnNormalDisable() { }
+    }
 }
 
 namespace UnityEngine
@@ -185,4 +199,17 @@ namespace UnityEngine.UI
     public class Outline : Behaviour { public Color effectColor { get; set; } public Vector2 effectDistance { get; set; } }
     public class ButtonClickedEvent { public void AddListener(Action callback) { } }
     public class ToggleEvent { public void AddListener(Action<bool> callback) { } }
+}
+
+
+// Test-only stand-ins for WorldBox native UI entry points.
+public class CanvasMain : UnityEngine.MonoBehaviour
+{
+    public static CanvasMain instance;
+    public UnityEngine.GameObject canvas_ui;
+}
+
+public class ScrollWindow : UnityEngine.MonoBehaviour
+{
+    public static void showWindow(string id) { }
 }
