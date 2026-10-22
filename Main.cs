@@ -238,59 +238,36 @@ public sealed class Main : BasicMod<Main>
             LogInfo("[OR-BASELINE] TYPE_FIELDS_NONE type=" + simpleName);
     }
 
-    private static readonly Dictionary<string, Type> LoadedTypeIndex =
+    private static readonly Dictionary<string, Type> LoadedTypeCache =
         new Dictionary<string, Type>(StringComparer.Ordinal);
-    private static bool loadedTypeIndexBuilt;
+    private static readonly HashSet<string> MissingTypeCache =
+        new HashSet<string>(StringComparer.Ordinal);
 
     private static Type FindLoadedType(string requestedName)
     {
         if (string.IsNullOrEmpty(requestedName)) return null;
-        BuildLoadedTypeIndex();
 
-        Type result;
-        return LoadedTypeIndex.TryGetValue(requestedName, out result) ? result : null;
-    }
+        Type cached;
+        if (LoadedTypeCache.TryGetValue(requestedName, out cached)) return cached;
+        if (MissingTypeCache.Contains(requestedName)) return null;
 
-    private static void BuildLoadedTypeIndex()
-    {
-        if (loadedTypeIndexBuilt) return;
-        loadedTypeIndexBuilt = true;
-
+        // All targets are requested by their exact FullName (or global class name).
+        // Assembly.GetType avoids enumerating every type in every Unity assembly on Android.
         Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
         for (int i = 0; i < assemblies.Length; i++)
         {
-            Type[] types;
             try
             {
-                types = assemblies[i].GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                types = ex.Types;
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (types == null) continue;
-            for (int t = 0; t < types.Length; t++)
-            {
-                Type candidate = types[t];
+                Type candidate = assemblies[i].GetType(requestedName, false);
                 if (candidate == null) continue;
-
-                if (!string.IsNullOrEmpty(candidate.FullName)
-                    && !LoadedTypeIndex.ContainsKey(candidate.FullName))
-                    LoadedTypeIndex.Add(candidate.FullName, candidate);
-
-                // Full names are stored first, so a namespaced type can always be requested
-                // unambiguously. The simple name is only a convenience for game types whose
-                // full namespace differs between WorldBox builds.
-                if (!string.IsNullOrEmpty(candidate.Name)
-                    && !LoadedTypeIndex.ContainsKey(candidate.Name))
-                    LoadedTypeIndex.Add(candidate.Name, candidate);
+                LoadedTypeCache[requestedName] = candidate;
+                return candidate;
             }
+            catch { }
         }
+
+        MissingTypeCache.Add(requestedName);
+        return null;
     }
 
     private void ProbeControlPanels()
@@ -452,7 +429,8 @@ public sealed class Main : BasicMod<Main>
             + "; name=" + component.gameObject.name
             + "; activeSelf=" + component.gameObject.activeSelf
             + "; activeInHierarchy=" + component.gameObject.activeInHierarchy
-            + "; hierarchy=" + DescribeHierarchy(component.transform));
+            + "; hierarchy=" + DescribeHierarchy(component.transform)
+            + "; canvas=" + DescribeNearestCanvas(component.transform));
 
         LogInstanceButtonFields(component);
         LogChildButtons(component);
@@ -547,6 +525,59 @@ public sealed class Main : BasicMod<Main>
 
         if (count > limit)
             LogInfo("[OR-BASELINE] UI_BUTTONS_TRUNCATED omitted=" + (count - limit));
+    }
+
+    private static string DescribeNearestCanvas(Transform transform)
+    {
+        Type canvasType = FindLoadedType("UnityEngine.Canvas");
+        if (canvasType == null) return "CANVAS_TYPE_NOT_LOADED";
+
+        Transform current = transform;
+        int depth = 0;
+        while (current != null && current.gameObject != null && depth < 12)
+        {
+            try
+            {
+                Component canvas = current.gameObject.GetComponent(canvasType);
+                if (canvas != null)
+                {
+                    return "name=" + current.gameObject.name
+                        + ";renderMode=" + ReadReflectedMember(canvas, "renderMode")
+                        + ";sortingOrder=" + ReadReflectedMember(canvas, "sortingOrder")
+                        + ";overrideSorting=" + ReadReflectedMember(canvas, "overrideSorting");
+                }
+            }
+            catch (Exception ex)
+            {
+                return "CANVAS_READ_ERROR=" + ex.GetType().Name;
+            }
+
+            current = current.parent;
+            depth++;
+        }
+
+        return "NO_CANVAS_ANCESTOR";
+    }
+
+    private static string ReadReflectedMember(object instance, string memberName)
+    {
+        if (instance == null) return "(null)";
+        try
+        {
+            PropertyInfo property = instance.GetType().GetProperty(
+                memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null) return Safe(Convert.ToString(property.GetValue(instance, null)));
+
+            FieldInfo field = instance.GetType().GetField(
+                memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null) return Safe(Convert.ToString(field.GetValue(instance)));
+        }
+        catch (Exception ex)
+        {
+            return "READ_ERROR_" + ex.GetType().Name;
+        }
+
+        return "(member-not-found)";
     }
 
     private static string DescribeHierarchy(Transform transform)
