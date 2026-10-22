@@ -1,0 +1,3 @@
+# Local/proprietary WorldBox reference assemblies (never commit these to the public repository)
+references/**/*.dll
+references/*.dll
