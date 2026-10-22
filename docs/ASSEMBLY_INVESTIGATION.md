@@ -70,3 +70,10 @@ A exceção nativa de status ainda não está corrigida. A ausência de patches 
 A estratégia de interceptar `StatsWindow` e métodos auxiliares de tooltip/seleção foi removida da fonte. O mod não instala mais Prefix/Postfix/Finalizer nesses métodos; a janela nativa de status segue o fluxo do jogo sem intervenção do Observatório. Isso não afirma que a `NullReferenceException` do jogo foi corrigida.
 
 O botão administrativo global em `CanvasMain.canvas_ui` também foi removido. A versão 0.6.2-dev procura a área de botões de `SelectedPowerTabButtons` ou `SelectedPowerTabTopButtons` e adiciona um botão `GOV` ao mesmo grupo de UI do controle/posse de NPC. A visibilidade é condicionada aos métodos de seleção `SelectedUnit.isSet()` ou `SelectedObjects.isNanoObjectSet()`. O runtime deve confirmar o nome real do componente/campo utilizado pelo telefone.
+
+
+## Integração com controles nativos — 0.6.3-dev
+
+A referência Assembly-CSharp examinada contém a classe `SelectedPowerTabTopButtons`, com campos `_button_possession`, `_button_spectate`, `_button_open_window` e o método `Update()`. A nova implementação usa esse ciclo de atualização como ponto de inserção e procura a mesma classe por reflexão no runtime. Também procura `SelectedPowerTabButtons` para cobrir a divergência de nome observada na stack trace fornecida anteriormente.
+
+O hook tenta criar `GOV` como irmão do controle nativo. As mensagens `NPC_CONTROL_HOOK_SUMMARY`, `NPC_CONTROL_HOOK_INSTALLED` e `NATIVE_CONTROL_BUTTON_CREATED` diferenciam encontrar o tipo, instalar o hook e inserir o botão — etapas que o teste de compilação, sozinho, não confirma.
