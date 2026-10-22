@@ -1,7 +1,7 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.6.0-dev",
+  "version": "0.6.1-dev",
   "description": "Janela administrativa nativa via AbstractWideWindow; sem patches na janela de status",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
