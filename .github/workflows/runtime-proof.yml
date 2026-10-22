@@ -1,0 +1,42 @@
+name: Runtime-proof source checks
+
+on:
+  push:
+    branches: [foundation/runtime-proof]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  bootstrap-stub-check:
+    name: Probe logic tests (not a game-runtime test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show SDK
+        run: dotnet --info
+
+      - name: Compile probe against isolated test doubles
+        run: dotnet build tests/BootstrapSmokeTests.csproj --configuration Release --verbosity minimal
+
+      - name: Execute lifecycle and UI-probe smoke tests
+        run: dotnet run --project tests/BootstrapSmokeTests.csproj --configuration Release --no-build
+
+      - name: Report validation boundary
+        if: always()
+        run: |
+          {
+            echo '## What this CI job proves'
+            echo '- The probe source compiles against test doubles.'
+            echo '- The OnModLoad, OnEnable, Start and Update markers are exercised in a simulated lifecycle.'
+            echo '- The probe can discover simulated control-panel types, fields and child UI buttons.'
+            echo
+            echo '## What it does not prove'
+            echo '- It does not execute WorldBox, Unity, or NeoModLoader.'
+            echo '- It does not prove the real mod compiled or ran on Android.'
+            echo '- It does not prove any button was rendered.'
+            echo
+            echo 'A runtime decision must use the [OR-BASELINE] log lines from the Android game.'
+          } >> "$GITHUB_STEP_SUMMARY"
