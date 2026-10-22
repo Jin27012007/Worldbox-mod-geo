@@ -7,8 +7,8 @@ using NeoModLoader.api;
 namespace ObservatorioDosReinos
 {
     /// <summary>
-    /// Leitura tolerante a mudanças de versão. Só procura metadados e valores;
-    /// nunca chama métodos de alteração do jogo.
+    /// Diagnostic that reads only metadata and live entity collections.
+    /// It never invokes game-changing methods.
     /// </summary>
     internal static class LeitorSeguroDoMundo
     {
@@ -18,23 +18,22 @@ namespace ObservatorioDosReinos
         internal sealed class Resumo
         {
             public bool MapaEncontrado;
-            public int Reinos;
-            public int Cidades;
-            public int Unidades;
-            public string Diagnostico;
+            public int Reinos = -1;
+            public int Cidades = -1;
+            public int Unidades = -1;
+            public string Diagnostico = "";
         }
 
         public static Resumo Inspecionar()
         {
             Resumo resultado = new Resumo();
             List<string> notas = new List<string>();
-
             try
             {
                 Type mapaTipo = Type.GetType("MapBox, Assembly-CSharp");
                 if (mapaTipo == null)
                 {
-                    notas.Add("MapBox nao encontrado na Assembly-CSharp.");
+                    notas.Add("MapBox nao encontrado em Assembly-CSharp.");
                     resultado.Diagnostico = string.Join(" | ", notas.ToArray());
                     return resultado;
                 }
@@ -42,10 +41,9 @@ namespace ObservatorioDosReinos
                 FieldInfo instanciaCampo = mapaTipo.GetField("instance", Membros);
                 object mapa = instanciaCampo == null ? null : instanciaCampo.GetValue(null);
                 resultado.MapaEncontrado = mapa != null;
-
                 if (mapa == null)
                 {
-                    notas.Add("MapBox.instance indisponivel; mundo pode nao estar carregado.");
+                    notas.Add("MapBox.instance indisponivel; mundo nao inicializado ou campo ausente.");
                     resultado.Diagnostico = string.Join(" | ", notas.ToArray());
                     return resultado;
                 }
@@ -54,22 +52,19 @@ namespace ObservatorioDosReinos
                 resultado.Cidades = ContarGerenciador(mapa, "cities", notas);
                 resultado.Unidades = ContarGerenciador(mapa, "units", notas);
 
-                Type[] candidatos =
+                string[] nomesTipos = { "PlayerControl", "Actor", "Kingdom", "City", "MapBox" };
+                string[] pistas = { "selected", "controlled", "player", "king", "kingdom",
+                    "city", "name", "actor", "current", "unit", "focus", "control",
+                    "instance", "target", "follow", "hero" };
+                for (int i = 0; i < nomesTipos.Length; i++)
                 {
-                    Type.GetType("PlayerControl, Assembly-CSharp"),
-                    Type.GetType("Actor, Assembly-CSharp"),
-                    Type.GetType("Kingdom, Assembly-CSharp"),
-                    Type.GetType("City, Assembly-CSharp"),
-                    Type.GetType("MapBox, Assembly-CSharp")
-                };
-
-                for (int i = 0; i < candidatos.Length; i++)
-                {
-                    if (candidatos[i] == null) continue;
-                    Type t = candidatos[i];
-                    notas.Add("tipo " + t.FullName + ": " + ResumirMembros(t,
-                        new string[] { "selected", "controlled", "player", "king", "kingdom",
-                            "city", "name", "actor", "current", "unit", "focus", "control" }));
+                    Type t = Type.GetType(nomesTipos[i] + ", Assembly-CSharp");
+                    if (t == null)
+                    {
+                        notas.Add("tipo " + nomesTipos[i] + " ausente.");
+                        continue;
+                    }
+                    notas.Add("tipo " + t.FullName + ": " + ResumirMembros(t, pistas));
                 }
 
                 resultado.Diagnostico = string.Join(" | ", notas.ToArray());
@@ -77,8 +72,7 @@ namespace ObservatorioDosReinos
             }
             catch (Exception ex)
             {
-                resultado.Diagnostico = "Inspecao interrompida com seguranca: "
-                    + ex.GetType().Name + ": " + ex.Message;
+                resultado.Diagnostico = "Inspecao segura falhou: " + ex.GetType().Name + ": " + ex.Message;
                 return resultado;
             }
         }
@@ -94,29 +88,25 @@ namespace ObservatorioDosReinos
                     notas.Add("gerenciador " + nome + " indisponivel.");
                     return -1;
                 }
-
                 PropertyInfo contagem = AcharPropriedade(gerenciador.GetType(), "Count");
                 if (contagem != null && contagem.PropertyType == typeof(int))
                 {
                     object valor = contagem.GetValue(gerenciador, null);
                     if (valor is int) return (int)valor;
                 }
-
                 IEnumerable enumeravel = gerenciador as IEnumerable;
                 if (enumeravel == null)
                 {
-                    notas.Add("gerenciador " + nome + " nao implementa IEnumerable.");
+                    notas.Add("gerenciador " + nome + " sem IEnumerable.");
                     return -1;
                 }
-
                 int total = 0;
-                foreach (object item in enumeravel)
-                    if (item != null) total++;
+                foreach (object item in enumeravel) if (item != null) total++;
                 return total;
             }
             catch (Exception ex)
             {
-                notas.Add("contagem de " + nome + " falhou: " + ex.GetType().Name);
+                notas.Add("contagem " + nome + " falhou: " + ex.GetType().Name);
                 return -1;
             }
         }
@@ -138,17 +128,15 @@ namespace ObservatorioDosReinos
                 for (int i = 0; i < metodos.Length; i++)
                     if (Combina(metodos[i].Name, pistas)) encontrados.Add("M:" + metodos[i].Name);
             }
-
-            if (encontrados.Count == 0) return "(nenhum membro compatível encontrado)";
-            if (encontrados.Count > 24) encontrados.RemoveRange(24, encontrados.Count - 24);
+            if (encontrados.Count == 0) return "(sem correspondencias pelas pistas)";
+            if (encontrados.Count > 35) encontrados.RemoveRange(35, encontrados.Count - 35);
             return string.Join(",", encontrados.ToArray());
         }
 
         private static bool Combina(string nome, string[] pistas)
         {
             for (int i = 0; i < pistas.Length; i++)
-                if (nome.IndexOf(pistas[i], StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
+                if (nome.IndexOf(pistas[i], StringComparison.OrdinalIgnoreCase) >= 0) return true;
             return false;
         }
 
@@ -189,15 +177,10 @@ namespace ObservatorioDosReinos
             Legitimidade = 50;
             Tesouro = 100;
         }
-
         public void AjustarEstabilidade(int variacao) { Estabilidade = Limitar((long)Estabilidade + variacao, 0, 100); }
         public void AjustarLegitimidade(int variacao) { Legitimidade = Limitar((long)Legitimidade + variacao, 0, 100); }
         public void AjustarTesouro(int variacao) { Tesouro = Limitar((long)Tesouro + variacao, 0, 1000000); }
-
-        private static int Limitar(long valor, int minimo, int maximo)
-        {
-            return (int)Math.Max(minimo, Math.Min(maximo, valor));
-        }
+        private static int Limitar(long valor, int minimo, int maximo) { return (int)Math.Max(minimo, Math.Min(maximo, valor)); }
     }
 
     public enum TipoRelacaoDiplomatica { Neutra = 0, Comercio = 1, Alianca = 2, Rivalidade = 3, Guerra = 4 }
@@ -208,7 +191,6 @@ namespace ObservatorioDosReinos
         public string ReinoB { get; private set; }
         public TipoRelacaoDiplomatica Tipo { get; private set; }
         public int Opiniao { get; private set; }
-
         public RelacaoDiplomatica(string reinoA, string reinoB)
         {
             if (string.IsNullOrEmpty(reinoA) || string.IsNullOrEmpty(reinoB))
@@ -219,7 +201,6 @@ namespace ObservatorioDosReinos
             Tipo = TipoRelacaoDiplomatica.Neutra;
             Opiniao = 0;
         }
-
         public void DefinirTipo(TipoRelacaoDiplomatica tipo)
         {
             if (!Enum.IsDefined(typeof(TipoRelacaoDiplomatica), tipo)) throw new ArgumentOutOfRangeException("tipo");
@@ -233,10 +214,8 @@ namespace ObservatorioDosReinos
     {
         private readonly Dictionary<string, PoliticaDoReino> reinos = new Dictionary<string, PoliticaDoReino>();
         private readonly Dictionary<string, RelacaoDiplomatica> relacoes = new Dictionary<string, RelacaoDiplomatica>();
-
         public int QuantidadeDeReinos { get { return reinos.Count; } }
         public int QuantidadeDeRelacoes { get { return relacoes.Count; } }
-
         public PoliticaDoReino RegistrarReino(string id, string nome)
         {
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("O ID do reino e obrigatorio.");
@@ -246,9 +225,7 @@ namespace ObservatorioDosReinos
             reinos.Add(id, novo);
             return novo;
         }
-
         public bool TentarObterReino(string id, out PoliticaDoReino reino) { return reinos.TryGetValue(id, out reino); }
-
         public RelacaoDiplomatica ObterOuCriarRelacao(string reinoA, string reinoB)
         {
             if (string.IsNullOrEmpty(reinoA) || string.IsNullOrEmpty(reinoB))
@@ -268,11 +245,9 @@ namespace ObservatorioDosReinos
     public class Main : BasicMod<Main>
     {
         private static EstadoPolitico estadoPolitico;
-
         protected override void OnModLoad()
         {
             estadoPolitico = new EstadoPolitico();
-
             PoliticaDoReino testeA = estadoPolitico.RegistrarReino("diagnostico-a", "Reino de teste A");
             PoliticaDoReino testeB = estadoPolitico.RegistrarReino("diagnostico-b", "Reino de teste B");
             RelacaoDiplomatica relacao = estadoPolitico.ObterOuCriarRelacao(testeA.Id, testeB.Id);
