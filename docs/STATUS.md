@@ -6,6 +6,7 @@
 - A interface principal agora herda de `AbstractWideWindow<ObservatorioJanelaNativa>`, usa `CreateAndInit("observatorio_dos_reinos", ...)` e registra uma janela nativa através do NeoModLoader.
 - O botão `GOVERNO` é criado como filho de `CanvasMain.instance.canvas_ui` e abre a janela com `ScrollWindow.showWindow(IdJanela)`.
 - Foram adicionados arquivos de localização para o título e o teste automatizado passou a validar invariantes do modelo político local, não o Harmony.
+- O `.gitignore` exclui `tests/` da descoberta recursiva de fontes do NeoModLoader. Sem isso, os stubs de teste poderiam entrar na compilação do próprio mod.
 - O carregamento da UI aguarda `CanvasMain` estar disponível antes de inicializar a janela.
 
 ## Limitações conhecidas
@@ -15,6 +16,10 @@
 - O botão adiciona um controle visível ao Canvas do jogo, mas pode precisar de ajuste de posição dependendo da escala/orientação do aparelho.
 - As ações de governo, diplomacia, reunião e RPG ainda registram preferências/propostas dentro da sessão. Elas não alteram estados internos reais de reinos/cidades nem ordenam guerra ou alianças.
 - O erro original da janela de status não é mais interceptado pelo Observatório; se continuar acontecendo sem os patches do mod, a causa fica fora desta implementação e precisa ser investigada separadamente.
+
+## Download de código-fonte
+
+ZIP da branch `scaffold/observatorio-dos-reinos`: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip. É fonte compilável pelo fluxo de mods de código do NeoModLoader; não é uma DLL pronta. O `.gitignore` exclui os testes e stubs da compilação dentro do jogo.
 
 ## Protocolo de aceitação
 
