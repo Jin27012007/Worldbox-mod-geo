@@ -1,29 +1,20 @@
 # Protocolo de testes — Android
 
-## Antes de atualizar
-- Faça uma cópia da pasta atual do Observatório dos Reinos e mantenha um mundo descartável para os testes.
-- O código no ramo de trabalho agora contém regras políticas locais; a build anterior não deve ser tratada como se já contivesse essa atualização.
+## Teste atual: diagnóstico seguro da API
+1. Faça backup da pasta do mod e mantenha um mundo descartável para os testes.
+2. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos` e atualize os arquivos do mod, sem substituir a pasta do Worldfall.
+3. Abra um mundo já gerado no WorldBox 0.51.4 e abra o log do NeoModLoader.
+4. Procure `Diagnostico do mundo:` e `Diagnostico de API (somente leitura):`.
+5. Envie as linhas completas. Elas indicam se `MapBox.instance` está disponível, quantos reinos/cidades/unidades foram enumerados e quais membros candidatos existem.
+6. Se o código não compilar/carregar, envie a exceção ou erro completo; não remova arquivos às cegas.
 
-## Teste 1 — carregar o protótipo político
-1. Baixe o ZIP da branch `scaffold/observatorio-dos-reinos`.
-2. Atualize os arquivos do mod com a nova versão do ramo. Não substitua a pasta do Worldfall.
-3. Abra o WorldBox e consulte o log do NeoModLoader.
-4. Procure `Autoteste politico: reinos=2, relacoes=1, tipo=Comercio, opiniao=10.`
-5. Confirme que o jogo abre e que não surgem exceções repetidas.
+Aprovação: o mod segue carregando, o log apresenta um resultado diagnóstico e o jogo permanece estável. Contagens `-1` indicam que um membro não foi localizado ou não pôde ser contado, não que o mundo não tenha entidades.
 
-Aprovação: log com os dois reinos de teste e a relação de comércio, sem crash.
+## Importante
+- Este probe é somente leitura: não invoca métodos de alteração do mundo.
+- O diagnóstico acontece em `OnModLoad`; se o NML chamar esse método antes de carregar um mundo, `MapBox.instance` pode estar nulo. Nesse caso o resultado é inconclusivo para contagens, e precisamos mudar a fase da inspeção antes de adicionar mais código.
+- Não declare personagem controlado/rei detectado sem evidência explícita no log.
+- Teste UI e ações que mudam o mundo só depois de identificar e validar as APIs da versão exata.
 
-## Teste 2 — validação de leitura real (futura)
-- A implementação só deve começar depois de confirmar os nomes e as assinaturas dos tipos na assembly exata do WorldBox 0.51.4.
-- Usar um mundo descartável que contenha ao menos dois reinos.
-- Comparar nomes/quantidades do painel com os dados nativos do jogo.
-- Confirmar que abrir/fechar o painel não altera a simulação.
-
-## Teste 3 — mecânicas integradas (futuro)
-- Só testar ações que mudem o mundo depois de adicionar backup/salvaguardas.
-- Confirmar separadamente efeitos de diplomacia, persistência e carregamento de saves.
-- Se houver crash ou erro repetido, desative o mod e restaure a cópia.
-
-## Diagnóstico de falha
-- Envie a mensagem completa do log e informe se aparece antes ou depois da linha do autoteste.
-- Não tentar adivinhar nomes de APIs ou ocultar exceções; corrigir usando o erro real.
+## Recuperação
+Em caso de crash, desative o mod e restaure a cópia. Guarde o log desde o início do carregamento.
