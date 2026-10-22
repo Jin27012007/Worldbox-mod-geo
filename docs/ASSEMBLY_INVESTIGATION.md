@@ -63,3 +63,10 @@ Isso é uma retirada da intervenção do mod, não uma prova de que a NullRefere
 O código não instala mais prefix/postfix/finalizer Harmony no status. A criação do atalho foi movida para antes da tentativa de inicialização da janela. O atalho usa Canvas próprio com ordenação prioritária e logs de falha por condição. Assim, uma exceção durante `AbstractWideWindow.CreateAndInit` não deve impedir a criação do botão.
 
 A exceção nativa de status ainda não está corrigida. A ausência de patches significa que esta revisão não intercepta o erro; a stack trace atual do aparelho será necessária para decidir se o problema é causado pelo próprio jogo ou por outro mod.
+
+
+## Decisão de arquitetura — 0.6.2-dev
+
+A estratégia de interceptar `StatsWindow` e métodos auxiliares de tooltip/seleção foi removida da fonte. O mod não instala mais Prefix/Postfix/Finalizer nesses métodos; a janela nativa de status segue o fluxo do jogo sem intervenção do Observatório. Isso não afirma que a `NullReferenceException` do jogo foi corrigida.
+
+O botão administrativo global em `CanvasMain.canvas_ui` também foi removido. A versão 0.6.2-dev procura a área de botões de `SelectedPowerTabButtons` ou `SelectedPowerTabTopButtons` e adiciona um botão `GOV` ao mesmo grupo de UI do controle/posse de NPC. A visibilidade é condicionada aos métodos de seleção `SelectedUnit.isSet()` ou `SelectedObjects.isNanoObjectSet()`. O runtime deve confirmar o nome real do componente/campo utilizado pelo telefone.
