@@ -1,33 +1,43 @@
 # Observatório dos Reinos (WorldBox 0.51.4)
 
-Projeto de mod 2D para Android usando NeoModLoader, com foco em geopolítica, diplomacia e interações de RPG, preservando a simulação normal do WorldBox.
+Mod original para WorldBox no Android, usando NeoModLoader, com foco em geopolítica, diplomacia e interações de RPG. A proposta é manter a simulação original e adicionar um painel 2D leve — sem modo 3D.
 
-## Estado atual
+## Primeiro marco: smoke test do carregador
 
-Este repositório está no estágio de estruturação. A compatibilidade exata entre WorldBox 0.51.4, NeoModLoader e o ambiente de compilação ainda precisa ser validada em execução no aparelho. Nenhuma build instalável foi validada até o momento.
+A classe de entrada agora segue o padrão documentado do NML:
 
-## Princípios
+```csharp
+using NeoModLoader.api;
 
-- Começar por leitura de dados; não alterar o mundo na primeira versão.
-- UI 2D simples e leve, sem recursos 3D.
-- Não copiar código, modelos, imagens ou outros assets proprietários de Worldfall.
-- Isolar chamadas específicas do jogo para reduzir conflitos e facilitar a depuração.
-- Só declarar compatibilidade depois de compilar e testar no jogo.
+public class Main : BasicMod<Main>
+{
+    protected override void OnModLoad()
+    {
+        LogInfo("Observatorio dos Reinos carregado.");
+    }
+}
+```
 
-## Primeiro marco: Observatório
-
-1. Confirmar que o NeoModLoader carrega o mod.
-2. Registrar versão/configuração e estado de inicialização no log.
-3. Exibir um painel simples de diagnóstico.
-4. Quando as APIs forem confirmadas, listar reinos e governantes sem modificar a simulação.
+Este código serve para verificar o ciclo de vida do mod e escrever no log. **Ainda não foi compilado nem executado no aparelho.** A interface de entrada corresponde à documentação pública consultada para NeoModLoader, mas deve ser confirmada contra a DLL e a versão específica instalada.
 
 ## Estrutura
 
-- `docs/STATUS.md`: fatos confirmados, hipóteses e pendências.
-- `docs/TEST_PROTOCOL.md`: protocolo de testes no Android.
-- `src/ObservatorioMod.cs`: ponto de entrada inicial, sujeito à validação da API instalada.
-- `mod.json`: manifesto provisório; validar formato e campos exigidos pela versão instalada do NeoModLoader.
+- `mod.json`: manifesto usando as chaves documentadas do NML (`GUID`, `Dependencies`, `UsePublicizedAssembly` etc.).
+- `src/ObservatorioMod.cs`: entrada do mod, atualmente só registra carregamento.
+- `docs/STATUS.md`: fatos e pendências técnicas.
+- `docs/TEST_PROTOCOL.md`: plano de validação no Android.
 
-## Compilação e instalação
+## Próximos passos
 
-Ainda não há instruções de compilação comprovadas para esta combinação específica de versões. Não instale uma DLL gerada por este scaffold até que o projeto compile contra as dependências reais do aparelho e passe pelos testes descritos em `docs/TEST_PROTOCOL.md`.
+1. Fazer o NML compilar o fonte no aparelho e verificar o log de carregamento.
+2. Resolver quaisquer erros de compilação com o log exato, sem adivinhar APIs.
+3. Adicionar um painel 2D simples.
+4. Inspecionar as APIs do jogo para exibir reinos/cidades/governantes em modo somente leitura.
+5. Só depois avançar para diplomacia e interação de RPG.
+
+## Princípios
+
+- Não mudar a simulação na etapa inicial.
+- Não incluir cópias das DLLs do jogo ou do carregador no pacote do mod.
+- Não reutilizar código, modelos ou assets do Worldfall.
+- Não afirmar compatibilidade até testar no WorldBox 0.51.4 no aparelho.
