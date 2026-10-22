@@ -315,8 +315,18 @@ namespace ObservatorioDosReinos
 
         private GameObject NovoUI(string nome,Transform pai,params Type[] comps)
         {
-            GameObject go=new GameObject(nome,comps);go.transform.SetParent(pai,false);
-            RectTransform r=go.GetComponent<RectTransform>();if(r!=null){r.localScale=Vector3.one;r.localRotation=Quaternion.identity;}
+            bool temRect=false;
+            for(int i=0;i<comps.Length;i++)if(comps[i]==typeof(RectTransform)){temRect=true;break;}
+            Type[] tipos=comps;
+            if(!temRect)
+            {
+                tipos=new Type[comps.Length+1];
+                tipos[0]=typeof(RectTransform);
+                Array.Copy(comps,0,tipos,1,comps.Length);
+            }
+            GameObject go=new GameObject(nome,tipos);go.transform.SetParent(pai,false);
+            RectTransform r=go.GetComponent<RectTransform>();
+            if(r!=null){r.localScale=Vector3.one;r.localRotation=Quaternion.identity;}
             return go;
         }
 
