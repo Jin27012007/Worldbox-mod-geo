@@ -1,9 +1,9 @@
 name: Build source mod
 on:
   push:
-    branches: [scaffold/observatorio-dos-reinos]
+    branches: [scaffold/observatorio-dos-reinos, experiment/visible-npc-button]
   pull_request:
-    branches: [main]
+    branches: [main, scaffold/observatorio-dos-reinos]
   workflow_dispatch:
 
 jobs:

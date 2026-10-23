@@ -831,10 +831,11 @@ namespace ObservatorioDosReinos
                     estrategiaPosicao = "fallback-raiz-ancora-direita";
                 }
 
-                bool contextoAtivo = estadoSelecaoConhecido
-                    ? selecaoAtiva
-                    : painel.gameObject.activeInHierarchy;
-                novo.SetActive(contextoAtivo && painel.gameObject.activeInHierarchy && pai.gameObject.activeInHierarchy);
+                // O estado de seleção é apenas diagnóstico: as APIs refletidas podem
+                // discordar do estado real da UI e manter o botão invisível.
+                bool painelAtivo = painel.gameObject.activeInHierarchy
+                    && pai.gameObject.activeInHierarchy;
+                novo.SetActive(painelAtivo);
                 RegistrarRegistro(novo, pai.gameObject, painel);
 
                 RectTransform paiRect = pai as RectTransform;
@@ -845,6 +846,7 @@ namespace ObservatorioDosReinos
                     + " | pivot=" + rect.pivot + " | anchoredPosition=" + rect.anchoredPosition
                     + " | sizeDelta=" + rect.sizeDelta + " | parentSize=" + (paiRect == null ? "(not-rect)" : paiRect.rect.size.ToString())
                     + " | seleção_conhecida=" + estadoSelecaoConhecido + " | seleção_ativa=" + selecaoAtiva
+                    + " | regra_visibilidade=painel+pai"
                     + " | activeSelf=" + novo.activeSelf + " | activeInHierarchy=" + novo.activeInHierarchy
                     + " | parent_active=" + pai.gameObject.activeInHierarchy);
                 return true;
@@ -956,11 +958,9 @@ namespace ObservatorioDosReinos
                     continue;
                 }
 
-                bool contextoAtivo = estadoSelecaoConhecido
-                    ? selecaoAtiva
-                    : item.Painel.gameObject.activeInHierarchy;
-                bool ativo = contextoAtivo
-                    && item.Painel.gameObject.activeInHierarchy
+                // A visibilidade acompanha a UI nativa; a seleção continua sendo
+                // registrada nos diagnósticos, mas não pode bloquear a renderização.
+                bool ativo = item.Painel.gameObject.activeInHierarchy
                     && item.Pai.activeInHierarchy;
                 if (item.Botao.activeInHierarchy != ativo)
                     item.Botao.SetActive(ativo);
