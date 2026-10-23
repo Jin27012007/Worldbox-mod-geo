@@ -710,6 +710,7 @@ namespace ObservatorioDosReinos
                 RectTransform modelo = referencia == null ? null : referencia.GetComponent<RectTransform>();
                 float largura = modelo == null ? 66f : modelo.rect.width;
                 float altura = modelo == null ? 40f : modelo.rect.height;
+                string estrategiaPosicao = modelo == null ? "fallback-raiz" : "offset-calculado";
                 if (largura < 24f) largura = modelo == null ? 66f : modelo.sizeDelta.x;
                 if (altura < 24f) altura = modelo == null ? 40f : modelo.sizeDelta.y;
                 if (largura < 24f) largura = 66f;
@@ -806,15 +807,28 @@ namespace ObservatorioDosReinos
                         novo.transform.SetSiblingIndex(referencia.transform.GetSiblingIndex() + 1);
                     else
                         novo.transform.SetAsLastSibling();
+
+                    estrategiaPosicao = horizontal != null && vertical != null
+                        ? "layout-horizontal+vertical"
+                        : horizontal != null ? "layout-horizontal" : "layout-vertical";
                 }
                 else if (modelo != null)
                 {
-                    rect.anchoredPosition = modelo.anchoredPosition + new Vector2(largura + 6f, 0f);
+                    // Em ancoragem à direita, deslocar para a direita pode tirar o botão da tela.
+                    // Coloque o novo botão para dentro do painel; em âncoras à esquerda/centro, para a direita.
+                    bool ancoraDireita = modelo.anchorMin.x >= 0.5f && modelo.anchorMax.x >= 0.5f;
+                    float direcaoX = ancoraDireita ? -1f : 1f;
+                    rect.anchoredPosition = modelo.anchoredPosition
+                        + new Vector2(direcaoX * (largura + 6f), 0f);
                     novo.transform.SetAsLastSibling();
+                    estrategiaPosicao = ancoraDireita
+                        ? "offset-esquerda-ancora-direita"
+                        : "offset-direita-ancora-esquerda-centro";
                 }
                 else
                 {
                     novo.transform.SetAsLastSibling();
+                    estrategiaPosicao = "fallback-raiz-ancora-direita";
                 }
 
                 bool contextoAtivo = estadoSelecaoConhecido
@@ -823,9 +837,15 @@ namespace ObservatorioDosReinos
                 novo.SetActive(contextoAtivo && painel.gameObject.activeInHierarchy && pai.gameObject.activeInHierarchy);
                 RegistrarRegistro(novo, pai.gameObject, painel);
 
+                RectTransform paiRect = pai as RectTransform;
                 Debug.LogWarning("[Observatorio] NATIVE_CONTROL_BUTTON_CREATED: GOV | painel=" + painel.GetType().FullName
                     + " | referência=" + nomeCampo + " | pai=" + pai.gameObject.name
+                    + " | estratégia=" + estrategiaPosicao
+                    + " | anchorMin=" + rect.anchorMin + " | anchorMax=" + rect.anchorMax
+                    + " | pivot=" + rect.pivot + " | anchoredPosition=" + rect.anchoredPosition
+                    + " | sizeDelta=" + rect.sizeDelta + " | parentSize=" + (paiRect == null ? "(not-rect)" : paiRect.rect.size.ToString())
                     + " | seleção_conhecida=" + estadoSelecaoConhecido + " | seleção_ativa=" + selecaoAtiva
+                    + " | activeSelf=" + novo.activeSelf + " | activeInHierarchy=" + novo.activeInHierarchy
                     + " | parent_active=" + pai.gameObject.activeInHierarchy);
                 return true;
             }
