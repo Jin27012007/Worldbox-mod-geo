@@ -32,6 +32,9 @@ jobs:
       - name: Validate manifest, project and locale files
         run: python3 scripts/validate_repository.py
 
+      - name: Test reference and package pipeline helpers
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
       - name: Compile all source modules against isolated Unity/NML stubs
         run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
 
