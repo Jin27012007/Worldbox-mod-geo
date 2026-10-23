@@ -1,38 +1,24 @@
 # Status técnico — Observatório dos Reinos 0.6.4-dev
 
-## Inserção do botão
+## Interface e ponto de entrada
 
-- O atalho global foi removido.
-- Na inicialização, o mod inspeciona as assemblies carregadas e tenta conectar um postfix Harmony ao método `Update()` de `SelectedPowerTabButtons`, `SelectedPowerTabTopButtons` ou classes `SelectedPowerTab*Buttons`.
-- Depois de cada atualização do painel, o código procura os campos nativos de posse/espectador/informações e insere `GOV` como irmão do botão de referência. Se não encontrar campo, usa outro Button filho ou, como último fallback, a raiz do próprio componente.
-- A varredura periódica da hierarquia de `CanvasMain.canvas_ui` continua como fallback se nenhum botão tiver sido registrado.
-- O botão não depende da janela estar aberta para ser criado. O clique chama `ObservatorioJanelaNativa.Abrir()` e registra sucesso/falha no log.
+- A integração do botão GOV continua experimental; não existe confirmação visual/runtime no WorldBox Android ainda.
+- O mod procura conectar um postfix Harmony ao Update de classes SelectedPowerTab*Buttons, priorizando SelectedPowerTabButtons e SelectedPowerTabTopButtons.
+- O código tenta inserir GOV como irmão de um controle nativo. O caminho de janela é separado: o clique chama ObservatorioJanelaNativa.Abrir().
+- A captura do aparelho mostra uma NullReferenceException no caminho nativo de abertura da janela de informações. Isso não prova que o Observatório causou o erro. Ver docs/STACK_TRACE_0.51.4.md e docs/UI_CONTRACT_0.51.4.md.
+- As capturas também indicam discrepância entre a build instalada (0.1.0-dev, marcada como “won't load”) e o código-fonte experimental (0.6.4-dev). Ver docs/INSTALLED_BUILD_TRIAGE.md.
 
-## Evidências de carregamento adicionadas em 0.6.4-dev
+## Fundação de build desta branch
 
-- `[OR-BASELINE] STAGE=ON_MOD_LOAD`: o ponto de entrada executou.
-- `[OR-BASELINE] DECLARATION`: identidade e diretório reportados pelo NML.
-- `[OR-BASELINE] ASSEMBLY`: identidade e MVID das assemblies em runtime.
-- `[OR-BASELINE] TYPE_PROBE` / `METHOD_PROBE` / `FIELD_PROBE`: contrato mínimo do painel de NPC e do método de status.
-- `[OR-BASELINE] STAGE=UPDATE_OK`: o Main entrou no Update.
+- ObservatorioDosReinos.csproj é o projeto de produção, target netstandard2.1 e inclui automaticamente todos os arquivos C# em src/**.
+- scripts/prepare_references.py prepara referências privadas a partir do ZIP Android fornecido; references/ é ignorado pelo Git e não deve ser publicado.
+- scripts/validate_repository.py verifica manifesto, projeto, versão e idiomas.
+- scripts/package_mod.py só cria um ZIP quando uma DLL de mod já compilada existe; o ZIP não copia assemblies de Unity/WorldBox/NML/Harmony.
+- A GitHub Action executa validação estática, testes de pipeline e compilação/testes contra stubs. Ela compila e empacota a DLL real apenas se todas as referências privadas estiverem presentes no runner. Se faltarem, registra SKIP e não cria um pacote falso; referências parciais ou erro na compilação real fazem o job falhar.
+- O fluxo de build real e instalação via Codespaces está em docs/BUILD_AND_RELEASE.md. As regras para adicionar fontes modulares estão em docs/ADDING_FEATURES.md.
 
-## Evidências esperadas da interface
+## Validação atual e limites
 
-- `NPC_CONTROL_HOOK_SUMMARY`: quantidade de classes encontradas e hooks conectados.
-- `NPC_CONTROL_HOOK_INSTALLED`: nome completo do componente cujo `Update()` foi interceptado.
-- `NATIVE_CONTROL_BUTTON_CREATED`: nome da classe de controle e contêiner no qual o botão foi inserido.
-- `NPC_CONTROL_REFERENCE_FALLBACK`: nenhum campo de referência conhecido foi encontrado; inclui um resumo dos botões filhos.
-- `NPC_CONTROL_PANEL_NOT_FOUND`: nem hook nem fallback localizaram a classe esperada.
-- `NATIVE_CONTROL_BUTTON_FAILED`: exceção ao construir o botão.
+A revisão da pipeline passou em validação estática e nos testes automatizados de stubs/pipeline na GitHub Action. Isso confirma a infraestrutura desses testes, não a compilação contra as DLLs privadas nem a execução em Unity/WorldBox Android. Ainda não há base para declarar o botão GOV funcional.
 
-## Validação e limites
-
-- O código foi modificado para usar o ciclo de atualização real da aba como gatilho primário.
-- O CI valida compilação contra stubs e invariantes do modelo político local, não a renderização no Unity.
-- A nova revisão ainda precisa ser confirmada no WorldBox Android em execução; não existe confirmação visual automática neste ambiente.
-- O Observatório não interfere na janela nativa de status.
-- Os controles de governo, diplomacia e RPG continuam registrando dados locais da sessão; não mudam os reinos reais.
-
-## Download
-
-https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
+As opções de governo, diplomacia e RPG existentes continuam sendo registros locais da sessão; ainda não alteram os reinos reais do jogo.

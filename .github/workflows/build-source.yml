@@ -1,61 +1,82 @@
-name: Build source mod
+name: Validate and build Observatorio
 on:
   push:
-    branches: [scaffold/observatorio-dos-reinos]
+    branches:
+      - main
+      - 'scaffold/**'
+      - 'foundation/**'
+      - 'feature/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - 'scaffold/**'
+      - 'foundation/**'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   source-check:
-    name: Compile source and test local political model
+    name: Static validation and stub smoke tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Show preinstalled .NET SDK
-        run: dotnet --info
-      - name: Compile C# source against isolated Unity/NML stubs
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate manifest, project and locale files
+        run: python3 scripts/validate_repository.py
+
+      - name: Check local build script syntax
+        run: bash -n scripts/build_local.sh
+
+      - name: Test reference and package pipeline helpers
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Compile all source modules against isolated Unity/NML stubs
         run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
-      - name: Exercise the political data model
+
+      - name: Exercise the local political data model
         run: dotnet run --project tests/CompileStubs.csproj --configuration Release --no-build
-      - name: Compile against local real references when safely supplied
-        shell: bash
-        run: |
-          mkdir -p build
-          required=(references/NeoModLoader.dll references/Assembly-CSharp-Publicized.dll references/UnityEngine.dll references/UnityEngine.CoreModule.dll references/UnityEngine.UI.dll references/UnityEngine.TextRenderingModule.dll references/UnityEngine.TextCoreTextEngineModule.dll references/UnityEngine.TextCoreFontEngineModule.dll references/UnityEngine.UIModule.dll)
-          missing=0
-          for f in "${required[@]}"; do
-            if [ ! -f "${f}" ]; then echo "Missing private reference: ${f}"; missing=1; fi
-          done
-          if [ "$missing" -eq 1 ]; then
-            echo "SKIPPED_PRIVATE_REFERENCES_NOT_PRESENT" > build/real-reference-status.txt
-            echo "Real-reference build skipped: reference DLLs are deliberately not tracked in this public repository. Use a private/local build environment to provide them." >> "$GITHUB_STEP_SUMMARY"
-          else
-            set +e
-            dotnet build tests/CompileWorldBoxRefs.csproj --configuration Release --verbosity minimal > build/real-reference-build.log 2>&1
-            rc=$?
-            cat build/real-reference-build.log
-            if [ "$rc" -eq 0 ]; then
-              echo "PASS" > build/real-reference-status.txt
-            else
-              echo "FAIL" > build/real-reference-status.txt
-              echo "Real-reference compile failed; see build/real-reference-build.log in the artifact." >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
-      - name: Report limits
-        if: always()
-        run: |
-          {
-            echo '## Build interpretation'
-            echo 'Stub compile + smoke test checks source structure and local political model invariants.'
-            echo 'It is not a mod DLL and does not verify real WorldBox/NeoModLoader runtime compatibility or native window visibility.'
-            echo 'A real-reference build runs only if exact local/private reference DLLs are present under references/.'
-            echo 'No game/loader DLLs are committed to this public repository.'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload build diagnostics
-        if: always()
+
+      - name: Detect private game references
+        id: references
+        run: python3 scripts/check_references.py
+
+      - name: Compile against the real WorldBox/NML references
+        if: steps.references.outputs.available == 'true'
+        run: dotnet build ObservatorioDosReinos.csproj --configuration Release --verbosity minimal
+
+      - name: Build installable ZIP from the real DLL
+        if: steps.references.outputs.available == 'true'
+        run: python3 scripts/package_mod.py
+
+      - name: Upload installable mod package
+        if: success() && steps.references.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: observatorio-build-results
-          path: build/
+          name: observatorio-dos-reinos
+          path: dist/Observatorio-dos-Reinos-*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record the validation boundary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Validation interpretation'
+            echo '- Static manifest/source checks and stub smoke tests are not a game runtime test.'
+            if [ -f bin/Release/netstandard2.1/ObservatorioDosReinos.dll ]; then
+              echo '- A real-reference DLL exists in the runner; compile and package steps were required to pass.'
+              echo '- Successful compilation proves compatibility with the supplied references, not runtime UI behavior.'
+            else
+              echo '- No real-reference DLL was produced. The real build was skipped and no installable package was produced.'
+            fi
+            echo '- Never commit game/Unity/NeoModLoader/Harmony reference assemblies to this public repository.'
+          } >> "$GITHUB_STEP_SUMMARY"
