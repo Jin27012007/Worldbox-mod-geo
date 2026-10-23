@@ -1,0 +1,61 @@
+name: Build source mod
+on:
+  push:
+    branches: [scaffold/observatorio-dos-reinos]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  source-check:
+    name: Compile source and test local political model
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Show preinstalled .NET SDK
+        run: dotnet --info
+      - name: Compile C# source against isolated Unity/NML stubs
+        run: dotnet build tests/CompileStubs.csproj --configuration Release --verbosity minimal
+      - name: Exercise the political data model
+        run: dotnet run --project tests/CompileStubs.csproj --configuration Release --no-build
+      - name: Compile against local real references when safely supplied
+        shell: bash
+        run: |
+          mkdir -p build
+          required=(references/NeoModLoader.dll references/Assembly-CSharp-Publicized.dll references/UnityEngine.dll references/UnityEngine.CoreModule.dll references/UnityEngine.UI.dll references/UnityEngine.TextRenderingModule.dll references/UnityEngine.TextCoreTextEngineModule.dll references/UnityEngine.TextCoreFontEngineModule.dll references/UnityEngine.UIModule.dll)
+          missing=0
+          for f in "${required[@]}"; do
+            if [ ! -f "${f}" ]; then echo "Missing private reference: ${f}"; missing=1; fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "SKIPPED_PRIVATE_REFERENCES_NOT_PRESENT" > build/real-reference-status.txt
+            echo "Real-reference build skipped: reference DLLs are deliberately not tracked in this public repository. Use a private/local build environment to provide them." >> "$GITHUB_STEP_SUMMARY"
+          else
+            set +e
+            dotnet build tests/CompileWorldBoxRefs.csproj --configuration Release --verbosity minimal > build/real-reference-build.log 2>&1
+            rc=$?
+            cat build/real-reference-build.log
+            if [ "$rc" -eq 0 ]; then
+              echo "PASS" > build/real-reference-status.txt
+            else
+              echo "FAIL" > build/real-reference-status.txt
+              echo "Real-reference compile failed; see build/real-reference-build.log in the artifact." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+      - name: Report limits
+        if: always()
+        run: |
+          {
+            echo '## Build interpretation'
+            echo 'Stub compile + smoke test checks source structure and local political model invariants.'
+            echo 'It is not a mod DLL and does not verify real WorldBox/NeoModLoader runtime compatibility or native window visibility.'
+            echo 'A real-reference build runs only if exact local/private reference DLLs are present under references/.'
+            echo 'No game/loader DLLs are committed to this public repository.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observatorio-build-results
+          path: build/

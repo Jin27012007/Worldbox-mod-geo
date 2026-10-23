@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>ObservatorioDosReinos</AssemblyName>
+    <RootNamespace>ObservatorioDosReinos</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>CS0649;CS0414</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../src/ObservatorioMod.cs" />
+    <!-- The game publicized assembly must provide the Assembly-CSharp identity.
+         Exclude the non-publicized copy to avoid duplicate assembly identities. -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>../references/Assembly-CSharp-Publicized.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="NeoModLoader">
+      <HintPath>../references/NeoModLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Use the full local Unity module set to resolve transitive UI/font references.
+         Keep game/loader DLLs out of this public repository. -->
+    <Reference Include="../references/*.dll" Exclude="../references/Assembly-CSharp.dll;../references/Assembly-CSharp-Publicized.dll;../references/NeoModLoader.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CheckReferenceAssemblies" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('../references/NeoModLoader.dll')" Text="Missing references/NeoModLoader.dll." />
+    <Error Condition="!Exists('../references/Assembly-CSharp-Publicized.dll')" Text="Missing references/Assembly-CSharp-Publicized.dll from target WorldBox runtime." />
+    <Error Condition="!Exists('../references/UnityEngine.dll')" Text="Missing references/UnityEngine.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.CoreModule.dll')" Text="Missing references/UnityEngine.CoreModule.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.UI.dll')" Text="Missing references/UnityEngine.UI.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.TextRenderingModule.dll')" Text="Missing references/UnityEngine.TextRenderingModule.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.TextCoreTextEngineModule.dll')" Text="Missing references/UnityEngine.TextCoreTextEngineModule.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.TextCoreFontEngineModule.dll')" Text="Missing references/UnityEngine.TextCoreFontEngineModule.dll." />
+    <Error Condition="!Exists('../references/UnityEngine.UIModule.dll')" Text="Missing references/UnityEngine.UIModule.dll." />
+  </Target>
+</Project>
