@@ -831,9 +831,8 @@ namespace ObservatorioDosReinos
                     estrategiaPosicao = "fallback-raiz-ancora-direita";
                 }
 
-                bool contextoAtivo = estadoSelecaoConhecido
-                    ? selecaoAtiva
-                    : painel.gameObject.activeInHierarchy;
+                string origemVisibilidade;
+                bool contextoAtivo = ContextoDosControlesAtivo(painel, out origemVisibilidade);
                 novo.SetActive(contextoAtivo && painel.gameObject.activeInHierarchy && pai.gameObject.activeInHierarchy);
                 RegistrarRegistro(novo, pai.gameObject, painel);
 
@@ -845,6 +844,7 @@ namespace ObservatorioDosReinos
                     + " | pivot=" + rect.pivot + " | anchoredPosition=" + rect.anchoredPosition
                     + " | sizeDelta=" + rect.sizeDelta + " | parentSize=" + (paiRect == null ? "(not-rect)" : paiRect.rect.size.ToString())
                     + " | seleção_conhecida=" + estadoSelecaoConhecido + " | seleção_ativa=" + selecaoAtiva
+                    + " | visibilidade_origem=" + origemVisibilidade
                     + " | activeSelf=" + novo.activeSelf + " | activeInHierarchy=" + novo.activeInHierarchy
                     + " | parent_active=" + pai.gameObject.activeInHierarchy);
                 return true;
@@ -931,6 +931,83 @@ namespace ObservatorioDosReinos
             return componente == null ? null : componente.gameObject;
         }
 
+        // A seleção lógica pode divergir dos flags SelectedUnit/SelectedObjects.
+        // Para visibilidade, use o estado dos controles nativos que já compõem este painel.
+        private static bool ContextoDosControlesAtivo(Component painel, out string origem)
+        {
+            if (painel == null || painel.gameObject == null)
+            {
+                origem = "painel-indisponivel";
+                return false;
+            }
+
+            bool controlesConhecidos;
+            bool controleAtivo = AlgumControleNativoAtivo(painel, out controlesConhecidos);
+            if (controlesConhecidos)
+            {
+                origem = "controles-nativos";
+                return controleAtivo;
+            }
+
+            origem = "fallback-painel";
+            return painel.gameObject.activeInHierarchy;
+        }
+
+        private static bool AlgumControleNativoAtivo(Component painel, out bool controlesConhecidos)
+        {
+            controlesConhecidos = false;
+            if (painel == null) return false;
+
+            string[] camposNativos =
+            {
+                "_button_possession", "_button_spectate", "_button_open_window", "_button_favorite"
+            };
+
+            for (Type atual = painel.GetType(); atual != null; atual = atual.BaseType)
+            {
+                for (int i = 0; i < camposNativos.Length; i++)
+                {
+                    FieldInfo campo = null;
+                    try
+                    {
+                        campo = atual.GetField(camposNativos[i], Instancia | BindingFlags.DeclaredOnly);
+                    }
+                    catch { }
+
+                    if (campo == null) continue;
+                    try
+                    {
+                        GameObject go = ConverterParaGameObject(campo.GetValue(painel));
+                        if (go == null || go == painel.gameObject) continue;
+                        controlesConhecidos = true;
+                        if (go.activeInHierarchy) return true;
+                    }
+                    catch { }
+                }
+            }
+
+            // Fallback pelos nomes dos botões filhos, se os campos privados mudarem.
+            Button[] botoes;
+            try { botoes = painel.GetComponentsInChildren<Button>(true); }
+            catch { botoes = new Button[0]; }
+
+            for (int i = 0; i < botoes.Length; i++)
+            {
+                if (botoes[i] == null || botoes[i].gameObject == null) continue;
+                string nome = botoes[i].gameObject.name.ToLowerInvariant();
+                bool nativo = nome.Contains("possession") || nome.Contains("possess")
+                    || nome.Contains("spectate") || nome.Contains("open_window")
+                    || nome.Contains("open_main") || nome.Contains("main_info")
+                    || nome.Contains("favorite") || nome.Contains("info");
+                if (!nativo) continue;
+
+                controlesConhecidos = true;
+                if (botoes[i].gameObject.activeInHierarchy) return true;
+            }
+
+            return false;
+        }
+
         private static void RegistrarRegistro(GameObject botao, GameObject pai, Component painel)
         {
             for (int i = 0; i < registros.Count; i++)
@@ -956,13 +1033,12 @@ namespace ObservatorioDosReinos
                     continue;
                 }
 
-                bool contextoAtivo = estadoSelecaoConhecido
-                    ? selecaoAtiva
-                    : item.Painel.gameObject.activeInHierarchy;
+                string origemVisibilidade;
+                bool contextoAtivo = ContextoDosControlesAtivo(item.Painel, out origemVisibilidade);
                 bool ativo = contextoAtivo
                     && item.Painel.gameObject.activeInHierarchy
                     && item.Pai.activeInHierarchy;
-                if (item.Botao.activeInHierarchy != ativo)
+                if (item.Botao.activeSelf != ativo)
                     item.Botao.SetActive(ativo);
             }
         }
