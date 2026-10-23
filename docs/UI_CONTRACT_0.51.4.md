@@ -32,6 +32,10 @@ Métodos confirmados:
 
 O segundo método aparece no stack trace da captura durante a abertura da janela de informações. Não é um ponto de entrada comprovadamente seguro para a janela do Observatório.
 
+A leitura do corpo IL confirma a sequência no início do método: chama `SelectedObjects.getSelectedNanoObject()` e em seguida chama `NanoObject.getTypeID()` no resultado, sem uma verificação de nulo entre essas duas instruções. Portanto, se `getSelectedNanoObject()` retornar `null`, a segunda chamada é um candidato direto para a `NullReferenceException` mostrada no log. O stack trace não fornece o offset da instrução, então isso é uma inferência forte a partir do IL, não uma captura do valor nulo em runtime.
+
+O caminho que leva até ele também é nativo: `SelectedPowerTabTopButtons.clickOpenMain()` obtém o `PowerTabAsset` e invoca `on_main_info_click`; o callback padrão `PowerTabLibrary.defaultMainInfoClick` chama `ScrollWindow.showWindow` antes da exceção. Isso aponta para a abertura nativa da janela de informações e não demonstra que o botão `GOV` tenha sido criado ou clicado.
+
 ### Estado da seleção
 
 - `SelectedUnit.isSet()` existe e retorna `Boolean`.
