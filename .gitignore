@@ -7,6 +7,7 @@ bin/
 obj/
 dist/
 build/
+build-input/
 *.user
 *.suo
 
