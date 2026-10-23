@@ -1,9 +1,13 @@
 name: Build source mod
 on:
   push:
-    branches: [scaffold/observatorio-dos-reinos]
+    branches:
+      - 'scaffold/**'
+      - 'fix/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - 'scaffold/**'
   workflow_dispatch:
 
 jobs:
