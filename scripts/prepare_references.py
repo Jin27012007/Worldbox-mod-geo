@@ -53,6 +53,9 @@ def main() -> int:
                 return 1
 
             DEST.mkdir(parents=True, exist_ok=True)
+            # Prevent stale Unity modules from a different game version surviving a refresh.
+            for stale_dll in DEST.glob("*.dll"):
+                stale_dll.unlink()
             copied = {}
             for target, candidates in REQUIRED.items():
                 source = next(candidate for candidate in candidates if candidate in names)
