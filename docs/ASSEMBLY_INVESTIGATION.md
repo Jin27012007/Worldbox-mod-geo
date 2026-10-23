@@ -20,12 +20,12 @@ Os binários abaixo vieram do pacote de referência enviado pelo usuário. Eles 
 
 O IL de `StatsWindow.OnEnable()` obtém `power_tab_id` do meta/asset, chama o delegate `get_selected`, define o `NanoObject` selecionado e chama `PowerTabController.showWorldTipSelected(...)`. Esse método lê o objeto selecionado e seu tipo, compara `prev_selected_meta_id`, consulta `power_tab_library`, obtém `get_localized_worldtip`, invoca o delegate e atualiza toolbar.
 
-## Divergência com o log do aparelho
-O log enviado pelo usuário mostra `PowerTabController.showWhoIsSelected(String, Boolean)` e `SelectedPowerTabButtons.clickOpenMain()`. Nenhuma das assemblies de referência listadas contém os identificadores `showWhoIsSelected` ou `SelectedPowerTabButtons`; elas contêm `showWorldTipSelected` e `SelectedPowerTabTopButtons`.
+## Comparação corrigida com o log do aparelho (2026-10-23)
+A captura enviada pelo usuário mostra WorldBox `0.51.4 (725@a593f)`, a chamada `SelectedPowerTabTopButtons.clickOpenMain()` e a falha em `PowerTabController.showWorldTipSelected(String, Boolean)`. A DLL `Assembly-CSharp.dll` extraída do pacote fornecido contém esses mesmos nomes, e o MVID exibido no log (`c8e357a15932475b92df58e3db43b9da`) corresponde ao MVID registrado para essa DLL.
 
-Portanto, o pacote de referência enviado não corresponde exatamente ao runtime que gerou a stack trace. Não é possível apontar o campo exato da `NullReferenceException` apenas com essas assemblies. A versão `0.5.5-dev` agora registra o nome completo e o MVID das assemblies carregadas para que o log do dispositivo possa confirmar quais binários estão realmente em execução.
+**Correção:** a afirmação anterior de que a stack trace usava `showWhoIsSelected` e `SelectedPowerTabButtons` estava errada. Não há divergência demonstrada entre esses nomes/essa DLL. A evidência indica uma `NullReferenceException` dentro de `showWorldTipSelected` durante `StatsWindow.OnEnable`; apenas esta captura e a DLL não identificam por si só o campo nulo. A revisão 0.6.4-dev registra novamente as assemblies do runtime para verificar o ambiente exato no qual a tentativa atual está sendo executada.
 
-## Alterações preventivas no mod
+## Estratégia histórica de uma versão anterior (não é a implementação atual)
 - Harmony é tentado antes da construção da interface.
 - Prefix mira `showWhoIsSelected` e `showWorldTipSelected` com assinatura `(string,bool)` e tenta ignorar a atualização auxiliar apenas durante `StatsWindow.OnEnable`/`WindowMetaGeneric.OnEnable`. Fora dessa chamada, deixa o método original seguir.
 - Finalizer funciona como segunda barreira para a `NullReferenceException` conhecida e tenta fechar o `ScrollWindow` ancestral completo antes de abrir o painel alternativo.
