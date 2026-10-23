@@ -1,8 +1,8 @@
 {
   "name": "Observatorio dos Reinos",
   "author": "Jin27012007",
-  "version": "0.6.3-dev",
-  "description": "Botão GOV integrado ao ciclo de atualização dos controles nativos de NPC",
+  "version": "0.6.4-dev",
+  "description": "Observatório experimental com marcador de carregamento/execução e integração diagnóstica do botão GOV no painel de NPC.",
   "GUID": "com.jin27012007.observatoriodosreinos",
   "RepoUrl": "https://github.com/Jin27012007/Worldbox-mod-geo",
   "Dependencies": [],
