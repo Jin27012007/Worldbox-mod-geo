@@ -32,7 +32,8 @@ class PipelineScriptTests(unittest.TestCase):
             archive_path = temp / "target.zip"
             destination = temp / "references"
             with zipfile.ZipFile(archive_path, "w") as archive:
-                for target_name, source_name in script.REQUIRED.items():
+                for target_name, candidates in script.REQUIRED.items():
+                    source_name = candidates[0]
                     archive.writestr(source_name, ("fake-assembly:" + target_name).encode("utf-8"))
                 archive.writestr(
                     script.GAME_PREFIX + "UnityEngine.ExtraModule.dll",
