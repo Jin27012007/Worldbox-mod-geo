@@ -477,7 +477,7 @@ namespace ObservatorioDosReinos
 
                 Debug.LogWarning("[Observatorio] NPC_CONTROL_HOOK_SUMMARY: assemblies=" + assemblies.Length
                     + " | tipos=" + tiposEncontrados + " | novos_hooks=" + novosHooks
-                    + " | total_hooks=" + hooksInstalados + " | build=0.6.3-dev");
+                    + " | total_hooks=" + hooksInstalados + " | build=0.6.4-dev");
 
                 if (tiposEncontrados == 0)
                     RegistrarAviso("NPC_CONTROL_TYPE_NOT_FOUND: nenhuma classe SelectedPowerTab*Buttons foi encontrada nas assemblies carregadas.");
@@ -1067,7 +1067,7 @@ namespace ObservatorioDosReinos
                 janelaNativaPronta = ObservatorioJanelaNativa.Instance != null;
                 if (janelaNativaPronta)
                 {
-                    LogInfo("JANELA_NATIVA_PRONTA: janela administrativa registrada. Build=0.6.2-dev.");
+                    LogInfo("JANELA_NATIVA_PRONTA: janela administrativa registrada. Build=0.6.4-dev.");
                 }
                 else
                 {
@@ -1192,7 +1192,7 @@ namespace ObservatorioDosReinos
             PoliticaDoReino a=estadoPolitico.RegistrarReino("diagnostico-a","Reino de teste A");
             PoliticaDoReino b=estadoPolitico.RegistrarReino("diagnostico-b","Reino de teste B");
             RelacaoDiplomatica rel=estadoPolitico.ObterOuCriarRelacao(a.Id,b.Id);rel.DefinirTipo(TipoRelacaoDiplomatica.Comercio);rel.AjustarOpiniao(10);
-            LogInfo("Observatorio dos Reinos carregado. Build=0.6.3-dev.");
+            LogInfo("Observatorio dos Reinos carregado. Build=0.6.4-dev.");
             ObservatorioBotaoPainelNPC.Inicializar();
             LogInfo("Integração com controles de NPC iniciada; consulte NPC_CONTROL_HOOK_SUMMARY.");
             LogInfo("Observatorio dos Reinos carregado. Sistemas politicos locais inicializados.");
