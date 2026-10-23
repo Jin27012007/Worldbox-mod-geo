@@ -1,43 +1,32 @@
 # Observatório dos Reinos — WorldBox Android
 
-Projeto experimental para WorldBox Android 0.51.4 + NeoModLoader.
+Projeto experimental para WorldBox Android 0.51.4 + NeoModLoader. O código do atalho GOV ainda não foi comprovado no runtime Android; não trate o botão como corrigido.
 
-## 0.6.4-dev — integração pelo ciclo do painel de NPC
+## Desenvolvimento
 
-O botão global de canto de tela foi removido. A versão 0.6.4-dev tenta instalar um postfix Harmony no método `Update()` das classes carregadas `SelectedPowerTabButtons` e `SelectedPowerTabTopButtons` (e outras classes chamadas `SelectedPowerTab*Buttons`). A inserção do botão acontece a partir do componente real que atualiza a aba de controles, em vez de depender apenas de uma busca global por objetos.
+O projeto real é ObservatorioDosReinos.csproj. Ele compila todos os arquivos C# sob src/ como biblioteca netstandard2.1 e usa referências locais do WorldBox/NeoModLoader. As DLLs do jogo não ficam no Git.
 
-O código procura primeiro os campos nativos de posse/espectador/abertura de informações; se esses nomes foram alterados, tenta usar outro botão que exista dentro do mesmo componente. Se a classe existir mas não tiver nenhum botão-filho, o código cria `GOV` diretamente sob a raiz desse painel. O botão aparece com a seleção de NPC/unidade quando os métodos de seleção conhecidos são encontrados; se a revisão do jogo não expuser esses métodos, usa o estado ativo do próprio painel.
+Leia:
+- docs/BUILD_AND_RELEASE.md — preparar referências, compilar e empacotar.
+- docs/ADDING_FEATURES.md — estrutura recomendada para novas funcionalidades.
+- docs/STATUS.md — estado conhecido da integração experimental.
+- docs/UI_CONTRACT_0.51.4.md, disponível na branch de investigação — membros nativos examinados.
 
-O clique no botão abre `ObservatorioJanelaNativa`. O mod não aplica patches na janela de status do jogo.
+## Build em duas camadas
 
-## Prova de carregamento e diagnóstico incorporados
+A GitHub Action sempre valida os manifests, compila contra stubs e executa os testes de lógica. Isso verifica o código-fonte, não o jogo real.
 
-Antes dos diagnósticos de interface, esta revisão registra:
-- `[OR-BASELINE] STAGE=ON_MOD_LOAD`: o NML chamou o ponto de entrada do mod.
-- `[OR-BASELINE] DECLARATION`: identidade e pasta que o NML atribuiu ao mod.
-- `[OR-BASELINE] ASSEMBLY`: assemblies e MVIDs realmente carregados.
-- `[OR-BASELINE] TYPE_PROBE`, `METHOD_PROBE` e `FIELD_PROBE`: confirma se as classes/métodos/campos vistos no log e nas DLLs estão disponíveis.
-- `[OR-BASELINE] STAGE=UPDATE_OK`: o objeto Main entrou no ciclo Update do Unity.
+Quando um conjunto completo de DLLs privadas existir no runner, a Action também compila o projeto de produção e cria um ZIP de mod. Sem referências, registra SKIP e não produz um ZIP falso. Referências incompletas ou erros na compilação real fazem o job falhar.
 
-Estes marcadores ajudam a separar falha de compilação/carregamento de falha de inserção/visibilidade. O botão continua experimental; esta revisão não é apresentada como comprovada em runtime.
+Para build local/Codespaces, prepare referências e execute:
 
-## Diagnóstico incorporado
+    python3 scripts/prepare_references.py /path/to/com.mkarpenko.worldbox.zip
+    python3 scripts/validate_repository.py
+    dotnet build ObservatorioDosReinos.csproj --configuration Release
+    python3 scripts/package_mod.py
 
-Após iniciar o jogo, procure no log por:
-- `NPC_CONTROL_HOOK_SUMMARY`: classes de controle encontradas e quantidade de hooks conectados.
-- `NPC_CONTROL_HOOK_INSTALLED`: o postfix foi instalado em `Update()`.
-- `NATIVE_CONTROL_BUTTON_CREATED`: o botão foi criado, com a classe de painel, referência e contêiner.
-- `NPC_CONTROL_REFERENCE_FALLBACK`: os nomes dos campos mudaram, então foi usada outra referência ou a raiz do painel.
-- `NPC_CONTROL_PANEL_NOT_FOUND`, `NPC_CONTROL_HOOK_FAILED` ou `NATIVE_CONTROL_BUTTON_FAILED`: o ponto exato que falhou.
+O resultado fica em dist/. O pacote continua experimental até ser instalado e testado no WorldBox Android 0.51.4 com a versão correspondente do NeoModLoader.
 
-Essas mensagens são importantes: compilação não garante que o componente exista no runtime correto.
+## Estado funcional
 
-## Download
-
-ZIP do código-fonte: https://github.com/Jin27012007/Worldbox-mod-geo/archive/refs/heads/scaffold/observatorio-dos-reinos.zip
-
-É pacote-fonte, não uma DLL pré-compilada. Faça backup da pasta atual antes de substituir os arquivos, extraia com `mod.json` na raiz e confirme que a versão carregada no log é `0.6.4-dev`.
-
-## Limites atuais
-
-O CI compila contra stubs, verifica o modelo político local e **não simula a interface do Unity em execução**. A compilação local contra as referências privadas e a confirmação visual no Android ainda são necessárias. As ações de governo/diplomacia permanecem dados locais de sessão; não alteram os reinos reais.
+Os registros de governo, diplomacia e RPG no código atual ainda são dados locais da sessão; não alteram reinos nativos. Uma compilação bem-sucedida tampouco comprova que o botão aparece, responde ao toque ou que a janela abre. Essas condições exigem logs e confirmação dentro do jogo.
