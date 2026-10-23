@@ -14,16 +14,21 @@ LOADER_PREFIX = "com.mkarpenko.worldbox/files/mods/"
 NML_PREFIX = "com.mkarpenko.worldbox/files/mods/NML/Assemblies/"
 
 REQUIRED = {
-    "NeoModLoader.dll": LOADER_PREFIX + "NeoModLoader.dll",
-    "Assembly-CSharp-Publicized.dll": NML_PREFIX + "Assembly-CSharp-Publicized.dll",
-    "0Harmony.dll": NML_PREFIX + "0Harmony.dll",
-    "UnityEngine.dll": GAME_PREFIX + "UnityEngine.dll",
-    "UnityEngine.CoreModule.dll": GAME_PREFIX + "UnityEngine.CoreModule.dll",
-    "UnityEngine.UI.dll": GAME_PREFIX + "UnityEngine.UI.dll",
-    "UnityEngine.TextRenderingModule.dll": GAME_PREFIX + "UnityEngine.TextRenderingModule.dll",
-    "UnityEngine.TextCoreTextEngineModule.dll": GAME_PREFIX + "UnityEngine.TextCoreTextEngineModule.dll",
-    "UnityEngine.TextCoreFontEngineModule.dll": GAME_PREFIX + "UnityEngine.TextCoreFontEngineModule.dll",
-    "UnityEngine.UIModule.dll": GAME_PREFIX + "UnityEngine.UIModule.dll",
+    "NeoModLoader.dll": (LOADER_PREFIX + "NeoModLoader.dll",),
+    # The uploaded Android package stores this DLL one directory above 0Harmony.
+    # Accept the alternate nested location used by some repackaged distributions.
+    "Assembly-CSharp-Publicized.dll": (
+        LOADER_PREFIX + "NML/Assembly-CSharp-Publicized.dll",
+        NML_PREFIX + "Assembly-CSharp-Publicized.dll",
+    ),
+    "0Harmony.dll": (NML_PREFIX + "0Harmony.dll",),
+    "UnityEngine.dll": (GAME_PREFIX + "UnityEngine.dll",),
+    "UnityEngine.CoreModule.dll": (GAME_PREFIX + "UnityEngine.CoreModule.dll",),
+    "UnityEngine.UI.dll": (GAME_PREFIX + "UnityEngine.UI.dll",),
+    "UnityEngine.TextRenderingModule.dll": (GAME_PREFIX + "UnityEngine.TextRenderingModule.dll",),
+    "UnityEngine.TextCoreTextEngineModule.dll": (GAME_PREFIX + "UnityEngine.TextCoreTextEngineModule.dll",),
+    "UnityEngine.TextCoreFontEngineModule.dll": (GAME_PREFIX + "UnityEngine.TextCoreFontEngineModule.dll",),
+    "UnityEngine.UIModule.dll": (GAME_PREFIX + "UnityEngine.UIModule.dll",),
 }
 
 
@@ -38,7 +43,8 @@ def main() -> int:
     try:
         with zipfile.ZipFile(archive_path) as archive:
             names = set(archive.namelist())
-            missing = [name for name, source in REQUIRED.items() if source not in names]
+            missing = [name for name, candidates in REQUIRED.items()
+                       if not any(source in names for source in candidates)]
             if missing:
                 print("Target archive is missing required WorldBox/NML assemblies:", file=sys.stderr)
                 for name in missing:
@@ -48,7 +54,8 @@ def main() -> int:
 
             DEST.mkdir(parents=True, exist_ok=True)
             copied = {}
-            for target, source in REQUIRED.items():
+            for target, candidates in REQUIRED.items():
+                source = next(candidate for candidate in candidates if candidate in names)
                 data = archive.read(source)
                 if not data:
                     raise ValueError(f"Empty assembly in archive: {source}")
