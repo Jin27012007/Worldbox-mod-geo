@@ -10,5 +10,4 @@ build/
 *.user
 *.suo
 
-# Keep CI-only stubs/test sources out of the in-game source-mod compiler.
-tests/
+# Production project compiles src/**/*.cs only; tests stay tracked and out of the mod package.
