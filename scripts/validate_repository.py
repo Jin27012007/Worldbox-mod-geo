@@ -41,6 +41,10 @@ def main() -> int:
         if any(version != manifest["version"] for version in versions):
             raise ValueError(f"Version mismatch: mod.json={manifest['version']!r}; source={versions!r}")
 
+        devcontainer_path = ROOT / ".devcontainer" / "devcontainer.json"
+        devcontainer = json.loads(devcontainer_path.read_text(encoding="utf-8"))
+        if "dotnet" not in devcontainer.get("image", "").lower():
+            raise ValueError(".devcontainer/devcontainer.json must use an image with the .NET SDK")
         locales = sorted((ROOT / "Locales").glob("*.json"))
         for locale in locales:
             json.loads(locale.read_text(encoding="utf-8"))
@@ -49,6 +53,7 @@ def main() -> int:
         print(f"PASS: production target is {tfm}; it includes future src/**/*.cs files.")
         print(f"PASS: {len(sources)} C# source file(s); runtime and manifest version = {manifest['version']}.")
         print(f"PASS: {len(locales)} locale JSON file(s) parse.")
+        print("PASS: Codespaces devcontainer JSON parses and selects a .NET build image.")
         print("LIMIT: this is static validation, not a real WorldBox/NML build or runtime test.")
         return 0
     except (OSError, json.JSONDecodeError, ET.ParseError, ValueError) as exc:
