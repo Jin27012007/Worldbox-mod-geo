@@ -37,3 +37,11 @@ Antes de mudar a geometria ou a lógica de visibilidade do botão, é necessári
 Se esses registros não existem, o teste ainda não alcançou o código do botão. Se existem, eles permitem localizar a etapa que falhou. Os testes de CI com stubs não substituem essa confirmação no WorldBox real.
 
 **Conclusão:** as capturas atuais são evidência de uma discrepância de build e de um erro nativo ao abrir informações, não evidência suficiente para declarar defeito ou correção no botão da build `0.6.4-dev`.
+
+## Estado do artefato no GitHub
+
+Na branch `scaffold/observatorio-dos-reinos`, a listagem da raiz contém `src/ObservatorioMod.cs`, `mod.json`, documentação e testes, mas não contém uma DLL compilada do mod. O workflow `build-source.yml` primeiro compila contra stubs isolados e só tenta a compilação com referências reais se as DLLs privadas estiverem em `references/`; se elas faltarem, a etapa é pulada.
+
+Também foi consultado o run de CI `39872165432`: o job concluído com sucesso se chama `Probe logic tests (not a game-runtime test)`, as etapas compilam e executam testes doubles e não há artefato publicado nessa execução. Logo, o resultado verde não fornece um instalador do mod nem prova compatibilidade no aparelho.
+
+Esse é um bloqueio de empacotamento, separado do defeito visual do botão. Para uma correção funcional testável, primeiro precisamos de uma build compilada com as referências exatas do WorldBox 0.51.4 e do NeoModLoader instalado. Essas DLLs não devem ser publicadas no repositório público; a compilação deve ocorrer num ambiente privado/local que já as possua.
