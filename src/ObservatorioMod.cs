@@ -1026,14 +1026,23 @@ namespace ObservatorioDosReinos
 
     public class Main : BasicMod<Main>
     {
+        private const string BuildVersion = "0.6.4-dev";
+        private const BindingFlags BaselineFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         private static EstadoPolitico estadoPolitico;
         private bool uiPendente;
         private bool janelaNativaPronta;
         private bool tentouInicializarJanela;
+        private bool baselineUpdateReported;
         private int quadrosDesdeCarga;
 
         private void Update()
         {
+            if (!baselineUpdateReported)
+            {
+                baselineUpdateReported = true;
+                LogInfo("[OR-BASELINE] BUILD=" + BuildVersion + "; STAGE=UPDATE_OK");
+            }
+
             ObservatorioBotaoPainelNPC.Atualizar();
 
             if (!uiPendente) return;
@@ -1071,8 +1080,114 @@ namespace ObservatorioDosReinos
             }
         }
 
+        private void LogModDeclarationBaseline()
+        {
+            try
+            {
+                var declaration = GetDeclaration();
+                if (declaration == null)
+                {
+                    LogInfo("[OR-BASELINE] DECLARATION=null");
+                    return;
+                }
+
+                LogInfo("[OR-BASELINE] DECLARATION name=" + declaration.Name
+                    + "; uid=" + declaration.UID
+                    + "; folder=" + declaration.FolderPath);
+            }
+            catch (Exception ex)
+            {
+                LogInfo("[OR-BASELINE] DECLARATION_ERROR=" + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private void LogAssemblyBaseline()
+        {
+            string[] expected = { "Assembly-CSharp", "NeoModLoader", "UnityEngine.CoreModule", "UnityEngine.UI", "0Harmony" };
+            Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+            for (int n = 0; n < expected.Length; n++)
+            {
+                bool found = false;
+                for (int i = 0; i < loaded.Length; i++)
+                {
+                    try
+                    {
+                        AssemblyName identity = loaded[i].GetName();
+                        if (!string.Equals(identity.Name, expected[n], StringComparison.OrdinalIgnoreCase)
+                            && !(expected[n] == "0Harmony" && identity.Name.IndexOf("Harmony", StringComparison.OrdinalIgnoreCase) >= 0))
+                            continue;
+
+                        found = true;
+                        string mvid = "(unavailable)";
+                        try { mvid = loaded[i].ManifestModule.ModuleVersionId.ToString("N"); } catch { }
+                        LogInfo("[OR-BASELINE] ASSEMBLY name=" + identity.Name
+                            + "; version=" + (identity.Version == null ? "(null)" : identity.Version.ToString())
+                            + "; mvid=" + mvid);
+                        break;
+                    }
+                    catch { }
+                }
+                if (!found) LogInfo("[OR-BASELINE] ASSEMBLY name=" + expected[n] + "; found=false");
+            }
+        }
+
+        private static Type ResolveBaselineType(string name)
+        {
+            Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+            for (int i = 0; i < loaded.Length; i++)
+            {
+                try
+                {
+                    Type found = loaded[i].GetType(name, false);
+                    if (found != null) return found;
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private void LogNpcUiContractBaseline()
+        {
+            Type controls = ResolveBaselineType("SelectedPowerTabTopButtons");
+            LogInfo("[OR-BASELINE] TYPE_PROBE name=SelectedPowerTabTopButtons; found=" + (controls != null));
+            if (controls != null)
+            {
+                MethodInfo update = null;
+                try { update = controls.GetMethod("Update", BaselineFlags, null, Type.EmptyTypes, null); } catch { }
+                LogInfo("[OR-BASELINE] METHOD_PROBE target=SelectedPowerTabTopButtons.Update; found=" + (update != null)
+                    + (update == null ? "" : "; visibility=" + (update.IsPublic ? "public" : update.IsFamily ? "protected" : update.IsPrivate ? "private" : "other")));
+
+                string[] interestingFields = { "_button_possession", "_button_spectate", "_button_open_window" };
+                for (int f = 0; f < interestingFields.Length; f++)
+                {
+                    FieldInfo field = null;
+                    for (Type current = controls; current != null && field == null; current = current.BaseType)
+                    {
+                        try { field = current.GetField(interestingFields[f], BaselineFlags | BindingFlags.DeclaredOnly); } catch { }
+                    }
+                    LogInfo("[OR-BASELINE] FIELD_PROBE name=" + interestingFields[f]
+                        + "; found=" + (field != null)
+                        + (field == null ? "" : "; type=" + field.FieldType.FullName));
+                }
+            }
+
+            Type controller = ResolveBaselineType("PowerTabController");
+            LogInfo("[OR-BASELINE] TYPE_PROBE name=PowerTabController; found=" + (controller != null));
+            if (controller != null)
+            {
+                MethodInfo method = null;
+                try { method = controller.GetMethod("showWorldTipSelected", BaselineFlags, null, new Type[] { typeof(string), typeof(bool) }, null); } catch { }
+                LogInfo("[OR-BASELINE] METHOD_PROBE target=PowerTabController.showWorldTipSelected(String, Boolean); found=" + (method != null));
+            }
+        }
+
         protected override void OnModLoad()
         {
+            LogInfo("[OR-BASELINE] BUILD=" + BuildVersion + "; STAGE=ON_MOD_LOAD");
+            LogModDeclarationBaseline();
+            LogAssemblyBaseline();
+            LogNpcUiContractBaseline();
+
             estadoPolitico=new EstadoPolitico();
             PoliticaDoReino a=estadoPolitico.RegistrarReino("diagnostico-a","Reino de teste A");
             PoliticaDoReino b=estadoPolitico.RegistrarReino("diagnostico-b","Reino de teste B");
