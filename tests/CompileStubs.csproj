@@ -9,7 +9,7 @@
     <NoWarn>CS0649;CS0414</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../src/ObservatorioMod.cs" />
+    <Compile Include="../src/**/*.cs" />
     <Compile Include="CompileStubs.cs" />
     <Compile Include="StubCompileSmokeTest.cs" />
   </ItemGroup>
