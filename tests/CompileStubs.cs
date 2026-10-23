@@ -5,10 +5,18 @@ using System.Reflection;
 
 namespace NeoModLoader.api
 {
+    public sealed class StubModDeclaration
+    {
+        public string Name { get; set; } = "Stub mod";
+        public string UID { get; set; } = "stub.guid";
+        public string FolderPath { get; set; } = "stub";
+    }
+
     public abstract class BasicMod<T> : UnityEngine.MonoBehaviour where T : BasicMod<T>
     {
         protected abstract void OnModLoad();
         protected void LogInfo(string message) { }
+        protected StubModDeclaration GetDeclaration() { return new StubModDeclaration(); }
     }
 
     // Test-only shape of the NML native-window base class. This does not emulate game runtime.
