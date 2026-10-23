@@ -27,9 +27,9 @@ A captura enviada pelo usuário mostra WorldBox `0.51.4 (725@a593f)`, a chamada 
 
 ## Estratégia histórica de uma versão anterior (não é a implementação atual)
 - Harmony é tentado antes da construção da interface.
-- Prefix mira `showWhoIsSelected` e `showWorldTipSelected` com assinatura `(string,bool)` e tenta ignorar a atualização auxiliar apenas durante `StatsWindow.OnEnable`/`WindowMetaGeneric.OnEnable`. Fora dessa chamada, deixa o método original seguir.
-- Finalizer funciona como segunda barreira para a `NullReferenceException` conhecida e tenta fechar o `ScrollWindow` ancestral completo antes de abrir o painel alternativo.
-- A UI usa Canvas persistente como raiz; `SafeAreaRoot` interno é reajustado pelo controlador principal após rotação; o atalho `GOVERNO` continua visível quando o painel está fechado.
+- Uma versão antiga chegou a registrar `showWhoIsSelected` como alvo. Esse identificador não é confirmado pela captura fornecida nem pela DLL examinada e não deve ser usado como fato sobre o runtime atual.
+- Também existiu uma tentativa de Prefix/Finalizer para contornar a exceção durante `StatsWindow.OnEnable`; essa estratégia foi retirada das versões posteriores e não faz parte do fluxo atual.
+- A revisão em andamento tenta inserir o botão no ciclo de `Update()` de `SelectedPowerTabTopButtons` e registra o resultado. Isso continua experimental até que o log e a tela do aparelho confirmem cada etapa.
 
 ## Build
 GitHub Actions confirma que o fonte compila contra stubs isolados Unity/NeoModLoader com 0 erros e 0 avisos no SHA `179a62596388e2bb5ccc664ed563bdef6f78ffbc`. Isso é uma verificação de sintaxe e consistência interna, não uma DLL instalável. O projeto `tests/CompileWorldBoxRefs.csproj` permite build contra DLLs reais em `references/`, mas o runner público não tem acesso aos arquivos locais. As referências permanecem excluídas pelo `.gitignore`; uma compilação real precisa ocorrer num ambiente privado/local.
