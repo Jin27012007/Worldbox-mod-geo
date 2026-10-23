@@ -10,11 +10,12 @@ Leia:
 - docs/BUILD_AND_RELEASE.md — preparar referências, compilar e empacotar.
 - docs/ADDING_FEATURES.md — estrutura recomendada para novas funcionalidades.
 - docs/STATUS.md — estado conhecido da integração experimental.
-- docs/UI_CONTRACT_0.51.4.md, disponível na branch de investigação — membros nativos examinados.
+- docs/UI_CONTRACT_0.51.4.md — membros nativos examinados na assembly da versão-alvo.
+- docs/STACK_TRACE_0.51.4.md e docs/INSTALLED_BUILD_TRIAGE.md — interpretação da captura e discrepância da build instalada.
 
 ## Build em duas camadas
 
-A GitHub Action sempre valida os manifests, compila contra stubs e executa os testes de lógica. Isso verifica o código-fonte, não o jogo real.
+A GitHub Action sempre valida os manifests, compila contra stubs e executa os testes de lógica e da pipeline. Isso verifica o código-fonte, não o jogo real.
 
 Quando um conjunto completo de DLLs privadas existir no runner, a Action também compila o projeto de produção e cria um ZIP de mod. Sem referências, registra SKIP e não produz um ZIP falso. Referências incompletas ou erros na compilação real fazem o job falhar.
 
