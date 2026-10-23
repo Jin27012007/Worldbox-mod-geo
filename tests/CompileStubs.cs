@@ -58,9 +58,10 @@ namespace UnityEngine
         public GameObject(string name, params Type[] components) { this.name = name; }
         public string name { get; set; }
         public Transform transform { get; } = new RectTransform();
+        public bool activeSelf { get; private set; }
         public bool activeInHierarchy { get; set; }
         public SceneManagement.Scene scene { get; } = new SceneManagement.Scene();
-        public void SetActive(bool value) { }
+        public void SetActive(bool value) { activeSelf = value; activeInHierarchy = value; }
         public T AddComponent<T>() where T : Component, new() => new T();
         public Component AddComponent(Type type) => null;
         public T GetComponent<T>() where T : class => default(T);
