@@ -1,4 +1,4 @@
-# Status técnico — Observatório dos Reinos 0.6.3-dev
+# Status técnico — Observatório dos Reinos 0.6.4-dev
 
 ## Inserção do botão
 
@@ -8,7 +8,15 @@
 - A varredura periódica da hierarquia de `CanvasMain.canvas_ui` continua como fallback se nenhum botão tiver sido registrado.
 - O botão não depende da janela estar aberta para ser criado. O clique chama `ObservatorioJanelaNativa.Abrir()` e registra sucesso/falha no log.
 
-## Evidências esperadas no log
+## Evidências de carregamento adicionadas em 0.6.4-dev
+
+- `[OR-BASELINE] STAGE=ON_MOD_LOAD`: o ponto de entrada executou.
+- `[OR-BASELINE] DECLARATION`: identidade e diretório reportados pelo NML.
+- `[OR-BASELINE] ASSEMBLY`: identidade e MVID das assemblies em runtime.
+- `[OR-BASELINE] TYPE_PROBE` / `METHOD_PROBE` / `FIELD_PROBE`: contrato mínimo do painel de NPC e do método de status.
+- `[OR-BASELINE] STAGE=UPDATE_OK`: o Main entrou no Update.
+
+## Evidências esperadas da interface
 
 - `NPC_CONTROL_HOOK_SUMMARY`: quantidade de classes encontradas e hooks conectados.
 - `NPC_CONTROL_HOOK_INSTALLED`: nome completo do componente cujo `Update()` foi interceptado.
