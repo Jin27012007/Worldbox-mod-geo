@@ -27,10 +27,20 @@ def load_script(name: str, relative: str):
 class PipelineScriptTests(unittest.TestCase):
     def test_reference_preparation_copies_required_and_extra_unity_dlls(self):
         script = load_script("prepare_references_tested", "scripts/prepare_references.py")
+        self.assertIn(
+            "com.mkarpenko.worldbox/files/mods/NML/Assembly-CSharp-Publicized.dll",
+            script.REQUIRED["Assembly-CSharp-Publicized.dll"],
+        )
+        self.assertEqual(
+            script.REQUIRED["0Harmony.dll"],
+            ("com.mkarpenko.worldbox/files/mods/NML/Assemblies/0Harmony.dll",),
+        )
         with tempfile.TemporaryDirectory() as temporary:
             temp = Path(temporary)
             archive_path = temp / "target.zip"
             destination = temp / "references"
+            destination.mkdir()
+            (destination / "UnityEngine.StaleModule.dll").write_bytes(b"stale version")
             with zipfile.ZipFile(archive_path, "w") as archive:
                 for target_name, candidates in script.REQUIRED.items():
                     source_name = candidates[0]
@@ -47,6 +57,7 @@ class PipelineScriptTests(unittest.TestCase):
             for target_name in script.REQUIRED:
                 self.assertTrue((destination / target_name).is_file(), target_name)
             self.assertTrue((destination / "UnityEngine.ExtraModule.dll").is_file())
+            self.assertFalse((destination / "UnityEngine.StaleModule.dll").exists())
             self.assertIn("never be committed", output.getvalue())
 
     def test_reference_checker_distinguishes_missing_complete_and_partial_sets(self):
